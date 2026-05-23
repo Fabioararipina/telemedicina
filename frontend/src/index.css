@@ -942,6 +942,22 @@ body {
 .trust-row { display: grid; grid-template-columns: 1fr; gap: 20px; }
 @media (min-width: 768px) { .trust-row { grid-template-columns: 1fr 1fr; align-items: center; } }
 
+/* ── pub placeholders & desktop h1 ── */
+.pub-ph {
+  background:
+    repeating-linear-gradient(135deg, color-mix(in oklab, #0ea5e9 8%, transparent) 0 8px, transparent 8px 16px),
+    #f0f9ff;
+  border: 1px solid color-mix(in oklab, #0ea5e9 18%, transparent);
+  border-radius: 12px;
+  display: grid; place-items: center;
+  color: #0369a1; font-family: var(--mono); font-size: 10.5px;
+  letter-spacing: 0.04em; text-align: center; padding: 10px;
+}
+.pub-ph small { display: block; font-size: 9.5px; opacity: 0.65; margin-top: 4px; }
+@media (min-width: 900px) {
+  .pub-hero-h1 { font-size: 64px !important; line-height: 1.02 !important; }
+}
+
 /* ── LEGAL PAGES ── */
 .legal-page {
   min-height: calc(100vh - 4.5rem);

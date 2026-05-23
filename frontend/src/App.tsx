@@ -11,8 +11,7 @@ const PERIOD_MS = 4 * 60 * 60 * 1000;
 
 function getPsych(): number {
   const periods = Math.floor(Math.max(0, Date.now() - EPOCH) / PERIOD_MS);
-  const taken = Math.min(BASE_TAKEN + periods * 2, TOTAL_VAGAS - 1);
-  return TOTAL_VAGAS - taken;
+  return TOTAL_VAGAS - Math.min(BASE_TAKEN + periods * 2, TOTAL_VAGAS - 1);
 }
 
 /* ── Types ── */
@@ -78,20 +77,17 @@ const PLANS: PlanData[] = [
 ];
 
 const PACOTES: PacoteData[] = [
-  { area: 'Psicologia', color: '#a855f7', colorSoft: '#faf5ff',
-    items: [
-      { freq: 'Semanal', n: '4 sessões/mês', total: 'R$ 250,00', per: 'R$ 62,50/sessão', save: '10% off' },
-      { freq: 'Quinzenal', n: '2 sessões/mês', total: 'R$ 132,00', per: 'R$ 66,00/sessão' },
-    ]},
-  { area: 'Fisioterapia', color: '#0284c7', colorSoft: '#f0f9ff',
-    items: [
-      { freq: 'Semanal', n: '4 sessões/mês', total: 'R$ 250,00', per: 'R$ 62,50/sessão', save: '10% off' },
-      { freq: 'Quinzenal', n: '2 sessões/mês', total: 'R$ 132,00', per: 'R$ 66,00/sessão' },
-    ]},
-  { area: 'Nutrição', color: '#16a34a', colorSoft: '#f0fdf4',
-    items: [
-      { freq: 'Quinzenal', n: '2 sessões/mês', total: 'R$ 132,00', per: 'R$ 66,00/sessão' },
-    ]},
+  { area: 'Psicologia', color: '#a855f7', colorSoft: '#faf5ff', items: [
+    { freq: 'Semanal', n: '4 sessões/mês', total: 'R$ 250,00', per: 'R$ 62,50/sessão', save: '10% off' },
+    { freq: 'Quinzenal', n: '2 sessões/mês', total: 'R$ 132,00', per: 'R$ 66,00/sessão' },
+  ]},
+  { area: 'Fisioterapia', color: '#0284c7', colorSoft: '#f0f9ff', items: [
+    { freq: 'Semanal', n: '4 sessões/mês', total: 'R$ 250,00', per: 'R$ 62,50/sessão', save: '10% off' },
+    { freq: 'Quinzenal', n: '2 sessões/mês', total: 'R$ 132,00', per: 'R$ 66,00/sessão' },
+  ]},
+  { area: 'Nutrição', color: '#16a34a', colorSoft: '#f0fdf4', items: [
+    { freq: 'Quinzenal', n: '2 sessões/mês', total: 'R$ 132,00', per: 'R$ 66,00/sessão' },
+  ]},
 ];
 
 const PERSONAS = [
@@ -116,8 +112,7 @@ const FAQS = [
   { q: 'Posso cancelar quando quiser?', a: 'Pode. Pelo próprio app, em 2 toques, sem multa e sem precisar ligar pra ninguém.' },
 ];
 
-/* ── Shared components ── */
-
+/* ── Icons ── */
 function WaIcon({ size = 20 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}>
@@ -126,6 +121,7 @@ function WaIcon({ size = 20 }: { size?: number }) {
   );
 }
 
+/* ── Sub-components ── */
 function VagasCounter({ remaining }: { remaining: number }) {
   const taken = TOTAL_VAGAS - remaining;
   const pct = (taken / TOTAL_VAGAS) * 100;
@@ -161,7 +157,7 @@ function EspChip({ e }: { e: EspItem }) {
   );
 }
 
-function MidCta({ variant, onCta }: { variant: CtaVariant; onCta: () => void }) {
+function MidCta({ variant, desktop, onCta }: { variant: CtaVariant; desktop: boolean; onCta: () => void }) {
   const map = {
     signup:   { eyebrow: 'Já entendeu como funciona?', title: 'Cria sua conta em 30 segundos.', sub: 'Sem cartão, sem compromisso. Você ainda escolhe se quer entrar.', cta: 'Garantir meu preço de lançamento →', style: 'soft' },
     whatsapp: { eyebrow: 'Ainda em dúvida?', title: 'Manda mensagem no WhatsApp.', sub: 'A gente te responde de verdade — em até 1h, das 8h às 22h.', cta: 'Falar com a gente no WhatsApp', style: 'wa' },
@@ -181,19 +177,21 @@ function MidCta({ variant, onCta }: { variant: CtaVariant; onCta: () => void }) 
     : { background: 'var(--green-500)', color: '#fff' };
 
   return (
-    <section style={{ paddingBlock: 36 }}>
+    <section style={{ paddingBlock: desktop ? 56 : 36 }}>
       <div className="pub-wrap">
-        <div style={{ padding: '24px 22px', borderRadius: 20, display: 'grid', gap: 18, position: 'relative', overflow: 'hidden', ...wrapStyle }}>
+        <div style={{ padding: desktop ? '32px 40px' : '24px 22px', borderRadius: 20, display: 'grid', gridTemplateColumns: desktop ? '1.4fr auto' : '1fr', gap: desktop ? 28 : 18, position: 'relative', overflow: 'hidden', alignItems: 'center', ...wrapStyle }}>
           {dark && <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 85% 20%, rgba(255,255,255,0.18), transparent 50%)' }} />}
           <div style={{ position: 'relative' }}>
             <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 8, color: dark ? 'rgba(255,255,255,0.85)' : 'var(--sky-700)' }}>{v.eyebrow}</div>
-            <h2 style={{ fontSize: 22, fontWeight: 900, lineHeight: 1.15, color: dark ? '#fff' : 'var(--ink)', marginBottom: 6 }}>{v.title}</h2>
-            <p style={{ fontSize: 14, lineHeight: 1.5, fontWeight: 600, color: dark ? 'rgba(255,255,255,0.85)' : 'var(--ink-2)' }}>{v.sub}</p>
+            <h2 style={{ fontSize: desktop ? 28 : 22, fontWeight: 900, lineHeight: 1.15, color: dark ? '#fff' : 'var(--ink)', marginBottom: 6 }}>{v.title}</h2>
+            <p style={{ fontSize: 14, lineHeight: 1.5, fontWeight: 600, color: dark ? 'rgba(255,255,255,0.85)' : 'var(--ink-2)', maxWidth: '44ch' }}>{v.sub}</p>
           </div>
-          <button onClick={v.style === 'wa' ? () => window.open(WA_LINK, '_blank') : onCta} className="pub-btn pub-btn-lg" style={{ fontSize: 15, padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, ...btnStyle }}>
-            {v.style === 'wa' && <WaIcon size={18} />}
-            {v.cta}
-          </button>
+          <div style={{ position: 'relative' }}>
+            <button onClick={v.style === 'wa' ? () => window.open(WA_LINK, '_blank') : onCta} className="pub-btn pub-btn-lg" style={{ fontSize: 15, padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: desktop ? 'auto' : '100%', whiteSpace: 'nowrap', ...btnStyle }}>
+              {v.style === 'wa' && <WaIcon size={18} />}
+              {v.cta}
+            </button>
+          </div>
         </div>
       </div>
     </section>
@@ -226,8 +224,7 @@ function Modal({ onClose, selectedPlan, onPlanChange, remaining }: ModalProps) {
   return (
     <div onClick={(e) => e.target === e.currentTarget && onClose()}
       style={{ position: 'fixed', inset: 0, background: 'rgba(12,74,110,0.6)', zIndex: 50, display: 'grid', placeItems: 'center', padding: 20, backdropFilter: 'blur(4px)' }}>
-      <div style={{ background: '#fff', borderRadius: 18, padding: 22, maxWidth: 380, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)', position: 'relative', maxHeight: '90vh', overflowY: 'auto' }}>
-
+      <div style={{ background: '#fff', borderRadius: 18, padding: 22, maxWidth: 380, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <img src="/logo.png" alt="Saúde Agora 24h" style={{ height: 32 }} />
           <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--slate-100)', display: 'grid', placeItems: 'center', color: 'var(--ink-2)', fontSize: 20, lineHeight: 1, border: 0, cursor: 'pointer' }}>×</button>
@@ -237,9 +234,7 @@ function Modal({ onClose, selectedPlan, onPlanChange, remaining }: ModalProps) {
           <div style={{ textAlign: 'center', padding: '24px 0' }}>
             <div style={{ fontSize: 48, marginBottom: 12 }}>🎉</div>
             <h2 style={{ fontSize: 22, fontWeight: 900, marginBottom: 10 }}>Você está na lista!</h2>
-            <p style={{ fontSize: 15, color: 'var(--ink-2)', lineHeight: 1.55 }}>
-              Assim que a plataforma for lançada, você recebe uma mensagem no WhatsApp com tudo certinho. 👊
-            </p>
+            <p style={{ fontSize: 15, color: 'var(--ink-2)', lineHeight: 1.55 }}>Assim que a plataforma for lançada, você recebe uma mensagem no WhatsApp. 👊</p>
             <button onClick={onClose} className="pub-btn pub-btn-primary pub-btn-block" style={{ marginTop: 22 }}>Fechar</button>
           </div>
         ) : (
@@ -247,7 +242,6 @@ function Modal({ onClose, selectedPlan, onPlanChange, remaining }: ModalProps) {
             <span className="pub-pill live" style={{ marginBottom: 10 }}>{remaining} vagas restantes</span>
             <h2 style={{ fontSize: 22, fontWeight: 900, lineHeight: 1.15, marginBottom: 6 }}>Garanta seu preço de lançamento</h2>
             <p style={{ fontSize: 13.5, color: 'var(--ink-2)', marginBottom: 18 }}>Te chamamos no WhatsApp assim que abrir. Sem cartão agora.</p>
-
             <div style={{ display: 'grid', gap: 8, marginBottom: 18 }}>
               {PLANS.map(p => (
                 <button key={p.id} onClick={() => onPlanChange(p.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', border: `1.5px solid ${selectedPlan === p.id ? 'var(--green-500)' : 'var(--slate-200)'}`, borderRadius: 12, background: selectedPlan === p.id ? 'var(--green-50)' : '#fff', textAlign: 'left', cursor: 'pointer', width: '100%' }}>
@@ -264,19 +258,15 @@ function Modal({ onClose, selectedPlan, onPlanChange, remaining }: ModalProps) {
                 </button>
               ))}
             </div>
-
             {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#b91c1c', marginBottom: 14 }}>{error}</div>}
-
             <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 12 }}>
               <label>
                 <span style={{ display: 'block', fontSize: 12, fontWeight: 800, marginBottom: 6, color: 'var(--ink-2)' }}>Seu nome</span>
-                <input className="pub-input" placeholder="Como te chamamos?" required value={formData.name}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, name: e.target.value })} />
+                <input className="pub-input" placeholder="Como te chamamos?" required value={formData.name} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, name: e.target.value })} />
               </label>
               <label>
                 <span style={{ display: 'block', fontSize: 12, fontWeight: 800, marginBottom: 6, color: 'var(--ink-2)' }}>WhatsApp</span>
-                <input className="pub-input" placeholder="(00) 0 0000-0000" inputMode="tel" required value={formData.phone}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, phone: e.target.value })} />
+                <input className="pub-input" placeholder="(00) 0 0000-0000" inputMode="tel" required value={formData.phone} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, phone: e.target.value })} />
               </label>
               <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 12, color: 'var(--ink-2)', fontWeight: 600, cursor: 'pointer' }}>
                 <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} style={{ marginTop: 2, flexShrink: 0 }} />
@@ -294,13 +284,22 @@ function Modal({ onClose, selectedPlan, onPlanChange, remaining }: ModalProps) {
   );
 }
 
-/* ── App ── */
+/* ══════════════════════════════════════════
+   APP
+══════════════════════════════════════════ */
 export default function App() {
+  const [desktop, setDesktop] = useState(() => window.innerWidth >= 1024);
   const [remaining, setRemaining] = useState(getPsych);
   const [showModal, setShowModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState('FAMILIAR');
   const [faqOpen, setFaqOpen] = useState(-1);
   const [espFilter, setEspFilter] = useState<EspFilter>('todas');
+
+  useEffect(() => {
+    const onResize = () => setDesktop(window.innerWidth >= 1024);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   useEffect(() => {
     axios.get(`${API}/api/leads/count`)
@@ -325,51 +324,83 @@ export default function App() {
   const visibleEsp = espFilter === 'todas' ? ESPECIALIDADES : ESPECIALIDADES.filter(e => e.cat === espFilter);
 
   return (
-    <>
+    <div className="pub" style={{ fontFamily: 'Nunito, system-ui, sans-serif', color: 'var(--ink)', background: '#fff', lineHeight: 1.5, fontSize: 16 }}>
+
       {/* ── HEADER ── */}
       <header style={{ position: 'sticky', top: 0, zIndex: 5, background: 'rgba(255,255,255,0.92)', backdropFilter: 'saturate(160%) blur(10px)', borderBottom: '1px solid var(--slate-200)' }}>
-        <div className="pub-wrap" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBlock: 12 }}>
-          <img src="/logo.png" alt="Saúde Agora 24h" style={{ height: 36 }} />
-          <button className="pub-btn pub-btn-primary" style={{ padding: '9px 16px', fontSize: 13 }} onClick={() => openModal('FAMILIAR')}>
-            Garantir minha vaga
-          </button>
+        <div className="pub-wrap" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBlock: desktop ? 14 : 12, gap: 16 }}>
+          <img src="/logo.png" alt="Saúde Agora 24h" style={{ height: desktop ? 38 : 34, flexShrink: 0 }} />
+
+          {desktop && (
+            <nav style={{ display: 'flex', gap: 28, fontSize: 14, fontWeight: 700, color: 'var(--ink-2)' }}>
+              {['Como funciona', 'Médicos', 'Especialidades', 'Planos', 'Perguntas'].map(l => (
+                <a key={l} href={`#${l.toLowerCase().replace(' ', '-')}`} style={{ cursor: 'pointer', textDecoration: 'none', color: 'var(--ink-2)' }}>{l}</a>
+              ))}
+            </nav>
+          )}
+
+          {desktop ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-3)' }}>Já é assinante?</span>
+              <div style={{ display: 'flex', alignItems: 'center', border: '1.5px solid var(--slate-200)', borderRadius: 999, background: '#fff', padding: 3 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 10px 0 12px' }}>
+                  <WaIcon size={14} />
+                  <input style={{ border: 0, outline: 0, background: 'transparent', fontSize: 13, fontWeight: 700, width: 130, color: 'var(--ink)', fontFamily: 'inherit' }} placeholder="(00) 9 9999-9999" />
+                </div>
+                <button style={{ background: 'var(--sky-700)', color: '#fff', borderRadius: 999, padding: '8px 16px', fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap', border: 0, cursor: 'pointer', fontFamily: 'inherit' }}>Entrar</button>
+              </div>
+            </div>
+          ) : (
+            <button className="pub-btn pub-btn-primary" style={{ padding: '9px 16px', fontSize: 13 }} onClick={() => openModal('FAMILIAR')}>
+              Garantir minha vaga
+            </button>
+          )}
         </div>
       </header>
 
       {/* ── HERO ── */}
-      <section style={{ paddingBlock: '36px 48px', background: 'linear-gradient(180deg, var(--sky-50) 0%, transparent 60%)' }}>
-        <div className="pub-wrap">
-          <span className="pub-pill live" style={{ marginBottom: 16 }}>Lançamento · {remaining} vagas restantes</span>
-          <h1 style={{ fontSize: 38, fontWeight: 900, lineHeight: 1.05, letterSpacing: '-0.02em', color: 'var(--sky-900)', margin: '0 0 14px' }}>
-            Médico de verdade<br />
-            <span style={{ color: 'var(--green-600)' }}>no seu celular,</span><br />
-            24h por dia.
-          </h1>
-          <p style={{ fontSize: 17, color: 'var(--ink-2)', marginBottom: 22, maxWidth: '34ch' }}>
-            Consulta com clínico geral em até 5 minutos. Atendimento humano, sem fila, sem hospital, sem sair de casa.
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 380 }}>
-            <button className="pub-btn pub-btn-primary pub-btn-lg pub-btn-block" onClick={() => openModal('FAMILIAR')}>
-              Garantir meu preço especial →
-            </button>
-            <div className="pub-mono" style={{ textAlign: 'center' }}>sem cartão · 30 segundos · cancela quando quiser</div>
+      <section id="como-funciona" style={{ paddingBlock: desktop ? '72px 88px' : '36px 48px', background: 'linear-gradient(180deg, var(--sky-50) 0%, transparent 60%)' }}>
+        <div className="pub-wrap" style={desktop ? { display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: 56, alignItems: 'center' } : {}}>
+          <div>
+            <span className="pub-pill live" style={{ marginBottom: 16 }}>Lançamento · {remaining} vagas restantes</span>
+            <h1 className="pub-hero-h1" style={{ fontSize: 38, fontWeight: 900, lineHeight: 1.05, letterSpacing: '-0.02em', color: 'var(--sky-900)', margin: '0 0 14px' }}>
+              Médico de verdade<br />
+              <span style={{ color: 'var(--green-600)' }}>no seu celular,</span><br />
+              24h por dia.
+            </h1>
+            <p style={{ fontSize: 17, color: 'var(--ink-2)', marginBottom: 22, maxWidth: '34ch' }}>
+              Consulta com clínico geral em até 5 minutos. Atendimento humano, sem fila, sem hospital, sem sair de casa.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 380 }}>
+              <button className="pub-btn pub-btn-primary pub-btn-lg pub-btn-block" onClick={() => openModal('FAMILIAR')}>
+                Garantir meu preço especial →
+              </button>
+              <div className="pub-mono" style={{ textAlign: 'center' }}>sem cartão · 30 segundos · cancela quando quiser</div>
+            </div>
+            <VagasCounter remaining={remaining} />
+            <ul style={{ listStyle: 'none', padding: 0, margin: '18px 0 0', display: 'grid', gap: 6, fontSize: 13.5, color: 'var(--ink-2)', fontWeight: 700 }}>
+              <li>✓ Sem mensalidade no 1º mês</li>
+              <li>✓ Atestado médico em PDF</li>
+              <li>✓ Atende família inteira no plano Familiar</li>
+            </ul>
           </div>
-          <VagasCounter remaining={remaining} />
-          <ul style={{ listStyle: 'none', padding: 0, margin: '18px 0 0', display: 'grid', gap: 6, fontSize: 13.5, color: 'var(--ink-2)', fontWeight: 700 }}>
-            <li>✓ Sem mensalidade no 1º mês</li>
-            <li>✓ Atestado médico em PDF</li>
-            <li>✓ Atende família inteira no plano Familiar</li>
-          </ul>
+          {desktop && (
+            <div className="pub-ph" style={{ aspectRatio: '5/6', minHeight: 480, fontSize: 12 }}>
+              mock do app
+              <small>chamada de vídeo com médico</small>
+              <small>360 × 640 · plano de fundo neutro</small>
+            </div>
+          )}
         </div>
       </section>
 
       {/* ── STATS ── */}
       <section style={{ background: 'var(--sky-900)', color: '#fff', paddingBlock: 28 }}>
-        <div className="pub-wrap" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 22 }}>
+        <div className="pub-wrap" style={{ display: 'grid', gridTemplateColumns: desktop ? 'repeat(4, 1fr)' : 'repeat(2, 1fr)', gap: desktop ? 0 : 22 }}>
           {[{ n: '100%', l: 'atendimento BR' }, { n: '+500', l: 'médicos com CRM' }, { n: '+30', l: 'especialidades' }, { n: '24h', l: 'todo dia' }].map((s, i) => (
-            <div key={i}>
-              <div style={{ fontSize: 32, fontWeight: 900, lineHeight: 1, letterSpacing: '-0.02em' }}>{s.n}</div>
-              <div style={{ fontSize: 12, opacity: 0.8, fontWeight: 700, marginTop: 4 }}>{s.l}</div>
+            <div key={i} style={{ textAlign: desktop ? 'center' : 'left', padding: desktop ? '8px 0' : 0 }}>
+              <div style={{ fontSize: desktop ? 44 : 32, fontWeight: 900, lineHeight: 1, letterSpacing: '-0.02em' }}>{s.n}</div>
+              <div style={{ fontSize: desktop ? 13 : 12, opacity: 0.8, fontWeight: 700, marginTop: 4 }}>{s.l}</div>
             </div>
           ))}
         </div>
@@ -381,7 +412,7 @@ export default function App() {
           <span className="pub-eyebrow">Como funciona</span>
           <h2 className="pub-h2">Médico em 3 toques no celular.</h2>
           <p className="pub-lead">Funciona até com sinal fraco. Sem precisar baixar app gigante.</p>
-          <ol style={{ listStyle: 'none', padding: 0, margin: '26px 0 0', display: 'grid', gap: 14 }}>
+          <ol style={{ listStyle: 'none', padding: 0, margin: '26px 0 0', display: 'grid', gridTemplateColumns: desktop ? 'repeat(3, 1fr)' : '1fr', gap: 14 }}>
             {[
               { n: '1', t: 'Cadastre-se pelo celular', d: 'Nome, WhatsApp e plano. 30 segundos, sem cartão.' },
               { n: '2', t: 'Abra o app e diga o que sente', d: 'Sem formulário comprido. Você fala, a gente entende.' },
@@ -399,15 +430,15 @@ export default function App() {
         </div>
       </section>
 
-      <MidCta variant="signup" onCta={() => openModal('FAMILIAR')} />
+      <MidCta variant="signup" desktop={desktop} onCta={() => openModal('FAMILIAR')} />
 
-      {/* ── PERSONAS ── */}
+      {/* ── PARA QUEM É (PERSONAS) ── */}
       <section className="pub-section" style={{ background: 'var(--green-50)' }}>
         <div className="pub-wrap">
           <span className="pub-eyebrow" style={{ background: 'var(--green-100)', color: 'var(--green-700)' }}>Para quem é</span>
           <h2 className="pub-h2">Feito pra família real, do interior.</h2>
           <p className="pub-lead">Atende do bebê à vovó. Veja se a gente serve pra você:</p>
-          <div style={{ display: 'grid', gap: 14, marginTop: 24 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: desktop ? 'repeat(3, 1fr)' : '1fr', gap: 14, marginTop: 24 }}>
             {PERSONAS.map((p, i) => (
               <article key={i} className="pub-card" style={{ padding: 16 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
@@ -430,7 +461,7 @@ export default function App() {
       </section>
 
       {/* ── ESPECIALIDADES ── */}
-      <section className="pub-section" style={{ background: 'var(--slate-50)' }}>
+      <section id="especialidades" className="pub-section" style={{ background: 'var(--slate-50)' }}>
         <div className="pub-wrap">
           <span className="pub-eyebrow">Especialidades</span>
           <h2 className="pub-h2">{ESPECIALIDADES.length}+ especialidades, do bebê à vovó.</h2>
@@ -443,7 +474,7 @@ export default function App() {
               </button>
             ))}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginTop: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: desktop ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)', gap: 8, marginTop: 16 }}>
             {visibleEsp.map(e => <EspChip key={e.n} e={e} />)}
           </div>
           <div style={{ marginTop: 18, padding: 14, background: '#fff', borderRadius: 12, border: '1px solid var(--slate-200)', fontSize: 12.5, color: 'var(--ink-2)', lineHeight: 1.55, fontWeight: 600 }}>
@@ -455,16 +486,16 @@ export default function App() {
       {/* ── SAÚDE MENTAL ── */}
       <section className="pub-section">
         <div className="pub-wrap">
-          <div style={{ background: 'linear-gradient(135deg, #7e22ce 0%, #6d28d9 50%, var(--sky-900) 100%)', borderRadius: 22, padding: 28, color: '#fff', position: 'relative', overflow: 'hidden' }}>
+          <div style={{ background: 'linear-gradient(135deg, #7e22ce 0%, #6d28d9 50%, var(--sky-900) 100%)', borderRadius: 22, padding: desktop ? 48 : 28, color: '#fff', position: 'relative', overflow: 'hidden', display: 'grid', gridTemplateColumns: desktop ? '1.4fr 1fr' : '1fr', gap: desktop ? 48 : 0, alignItems: 'center' }}>
             <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 80% 0%, rgba(168,85,247,0.5), transparent 50%), radial-gradient(circle at 20% 100%, rgba(14,165,233,0.4), transparent 50%)' }} />
             <div style={{ position: 'relative' }}>
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.15)', padding: '5px 12px', borderRadius: 999, fontSize: 11, fontWeight: 900, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 14 }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} /> Pronto atendimento · 9h às 23h
               </div>
-              <h2 style={{ color: '#fff', fontSize: 26, lineHeight: 1.1, marginBottom: 12 }}>
+              <h2 style={{ color: '#fff', fontSize: desktop ? 34 : 26, lineHeight: 1.1, marginBottom: 12 }}>
                 Falar com um psicólogo agora,<br />sem precisar marcar.
               </h2>
-              <p style={{ fontSize: 15, opacity: 0.92, maxWidth: '44ch', marginBottom: 20 }}>
+              <p style={{ fontSize: desktop ? 17 : 15, opacity: 0.92, maxWidth: '44ch', marginBottom: 20 }}>
                 Psicólogos de plantão pra te escutar. Crise, ansiedade, dúvida do dia a dia — sem julgamento e sem fila grande.
               </p>
               <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 24px', display: 'grid', gap: 8, fontSize: 14, fontWeight: 700 }}>
@@ -478,6 +509,26 @@ export default function App() {
                 Falar com psicólogo agora →
               </button>
             </div>
+            {desktop && (
+              <div style={{ position: 'relative', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.18)', borderRadius: 18, padding: 22, backdropFilter: 'blur(10px)' }}>
+                <div className="pub-mono" style={{ color: '#cbd5e1', marginBottom: 10 }}>Acolhimento ao vivo · agora</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                  <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'linear-gradient(135deg, #a855f7, #6d28d9)', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 900, border: '2px solid rgba(255,255,255,0.3)' }}>BC</div>
+                  <div>
+                    <div style={{ fontWeight: 900, fontSize: 15, color: '#fff' }}>Dra. Bianca Costa</div>
+                    <div style={{ fontSize: 11, opacity: 0.75, fontWeight: 700, fontFamily: 'var(--mono)' }}>Psicologia · CRP/PE 02-5544</div>
+                    <div style={{ fontSize: 11, color: '#86efac', fontWeight: 800, marginTop: 4 }}>● Disponível agora</div>
+                  </div>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.08)', padding: 14, borderRadius: 12, fontSize: 13, fontStyle: 'italic', lineHeight: 1.5, borderLeft: '3px solid #a855f7' }}>
+                  "Tô aqui pra te ouvir. Pode começar do início ou de onde você quiser. Não tem pressa."
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+                  <span style={{ padding: '5px 10px', background: 'rgba(255,255,255,0.15)', borderRadius: 999, fontSize: 11, fontWeight: 700 }}>Sigilo profissional</span>
+                  <span style={{ padding: '5px 10px', background: 'rgba(255,255,255,0.15)', borderRadius: 999, fontSize: 11, fontWeight: 700 }}>15–45min</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -488,7 +539,7 @@ export default function App() {
           <span className="pub-eyebrow">Acompanhamento contínuo</span>
           <h2 className="pub-h2">Pacotes pra cuidar todo mês, mais barato.</h2>
           <p className="pub-lead">Quando você precisa de acompanhamento, não só de uma consulta avulsa.</p>
-          <div style={{ display: 'grid', gap: 14, marginTop: 22 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: desktop ? 'repeat(3, 1fr)' : '1fr', gap: 14, marginTop: 22 }}>
             {PACOTES.map(p => (
               <article key={p.area} className="pub-card" style={{ padding: 18 }}>
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '5px 10px', background: p.colorSoft, color: p.color, borderRadius: 999, fontSize: 11, fontWeight: 900, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 12 }}>
@@ -513,14 +564,14 @@ export default function App() {
         </div>
       </section>
 
-      <MidCta variant="whatsapp" onCta={() => openModal('FAMILIAR')} />
+      <MidCta variant="whatsapp" desktop={desktop} onCta={() => openModal('FAMILIAR')} />
 
       {/* ── BENEFÍCIOS ── */}
       <section className="pub-section">
         <div className="pub-wrap">
           <span className="pub-eyebrow">O que está incluído</span>
           <h2 className="pub-h2">Tudo no app, sem letrinha miúda.</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginTop: 22 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: desktop ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)', gap: 12, marginTop: 22 }}>
             {[
               { s: '●', t: 'Clínico geral 24h', d: 'Todo dia, inclusive feriado e madrugada.' },
               { s: '◆', t: 'Especialistas agendados', d: 'Em até 48h, por chamada de vídeo.' },
@@ -545,7 +596,7 @@ export default function App() {
           <span className="pub-eyebrow" style={{ background: 'var(--amber-50)', color: 'var(--amber-600)' }}>Honestidade</span>
           <h2 className="pub-h2">A gente avisa quando é melhor ir ao presencial.</h2>
           <p className="pub-lead">Telemedicina resolve a maioria dos casos, mas existem situações em que o presencial é mais seguro.</p>
-          <div style={{ display: 'grid', gap: 12, marginTop: 22 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: desktop ? 'repeat(2, 1fr)' : '1fr', gap: 12, marginTop: 22 }}>
             {[
               { i: '🩺', t: 'Precisa de exame físico', d: 'Ausculta, palpação ou outro procedimento que só dá pra fazer com o médico do seu lado.' },
               { i: '🚨', t: 'Sinais de gravidade', d: 'Quadros agudos que precisam de pronto-socorro imediato — a gente te orienta a procurar.' },
@@ -574,7 +625,7 @@ export default function App() {
           <span className="pub-eyebrow">Planos</span>
           <h2 className="pub-h2">Escolha o seu. Sem fidelidade.</h2>
           <p className="pub-lead">Preços de lançamento garantidos só pras primeiras {TOTAL_VAGAS} pessoas.</p>
-          <div style={{ display: 'grid', gap: 14, marginTop: 24 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: desktop ? 'repeat(3, 1fr)' : '1fr', gap: 14, marginTop: 24, alignItems: 'start' }}>
             {PLANS.map(p => (
               <article key={p.id} style={{ padding: 22, position: 'relative', borderRadius: 14, border: `${p.highlight ? 2 : 1}px solid ${p.highlight ? 'var(--green-500)' : 'var(--slate-200)'}`, background: p.highlight ? 'linear-gradient(180deg, var(--green-50), #fff 40%)' : '#fff' }}>
                 {p.tag && <span style={{ position: 'absolute', top: -12, left: 18, background: 'var(--green-500)', color: '#fff', padding: '4px 10px', borderRadius: 999, fontSize: 10.5, fontWeight: 900, letterSpacing: '0.06em' }}>{p.tag.toUpperCase()}</span>}
@@ -599,20 +650,18 @@ export default function App() {
               </article>
             ))}
           </div>
-          <p style={{ marginTop: 18, fontSize: 12, color: 'var(--ink-3)', textAlign: 'center', fontWeight: 600 }}>
-            Pix · cartão · boleto · sem juros · cancele a qualquer momento pelo app
-          </p>
+          <p style={{ marginTop: 18, fontSize: 12, color: 'var(--ink-3)', textAlign: 'center', fontWeight: 600 }}>Pix · cartão · boleto · sem juros · cancele a qualquer momento pelo app</p>
         </div>
       </section>
 
-      <MidCta variant="start" onCta={() => openModal('FAMILIAR')} />
+      <MidCta variant="start" desktop={desktop} onCta={() => openModal('FAMILIAR')} />
 
       {/* ── DEPOIMENTOS ── */}
       <section className="pub-section">
         <div className="pub-wrap">
           <span className="pub-eyebrow">Quem já usa</span>
           <h2 className="pub-h2">Gente do interior usando todo dia.</h2>
-          <div style={{ display: 'grid', gap: 14, marginTop: 22 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: desktop ? 'repeat(3, 1fr)' : '1fr', gap: 14, marginTop: 22 }}>
             {TESTIMONIALS.map((t, i) => (
               <figure key={i} style={{ margin: 0, background: '#fff', border: '1px solid var(--slate-200)', borderRadius: 14, padding: 18 }}>
                 <div style={{ fontSize: 36, color: 'var(--green-500)', fontWeight: 900, lineHeight: 0.6, marginBottom: 6 }}>"</div>
@@ -636,11 +685,11 @@ export default function App() {
       <section className="pub-section" style={{ background: 'var(--sky-900)', color: '#fff' }}>
         <div className="pub-wrap">
           <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 900, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#86efac', background: 'rgba(16,185,129,0.15)', padding: '5px 10px', borderRadius: 6, marginBottom: 12 }}>Conformidade</span>
-          <h2 style={{ color: '#fff', fontSize: 26, lineHeight: 1.15 }}>Operação 100% dentro da lei.</h2>
+          <h2 style={{ color: '#fff', fontSize: desktop ? 36 : 26, lineHeight: 1.15 }}>Operação 100% dentro da lei.</h2>
           <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 15, marginTop: 8, maxWidth: '44ch' }}>
             Plataforma operada pela LSX Medical com gestão clínica auditada, sigilo profissional e proteção total dos seus dados.
           </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginTop: 22 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: desktop ? 'repeat(4, 1fr)' : 'repeat(2, 1fr)', gap: 12, marginTop: 22 }}>
             {[
               { t: 'LGPD', d: 'Seus dados são seus. Nunca vendemos, nunca compartilhamos.', icon: '🔒' },
               { t: 'CFM 2.314/2022', d: 'Resolução do Conselho Federal de Medicina sobre telemedicina.', icon: '⚖️' },
@@ -658,14 +707,14 @@ export default function App() {
       </section>
 
       {/* ── FAQ ── */}
-      <section className="pub-section" style={{ background: 'var(--green-50)' }}>
+      <section id="perguntas" className="pub-section" style={{ background: 'var(--green-50)' }}>
         <div className="pub-wrap">
           <span className="pub-eyebrow" style={{ background: 'var(--green-100)', color: 'var(--green-700)' }}>Perguntas frequentes</span>
           <h2 className="pub-h2">Dúvidas que todo mundo tem.</h2>
-          <ul style={{ listStyle: 'none', padding: 0, margin: '22px 0 0', display: 'grid', gap: 10 }}>
+          <ul style={{ listStyle: 'none', padding: 0, margin: '22px 0 0', display: 'grid', gap: 10, maxWidth: desktop ? 740 : 'none' }}>
             {FAQS.map((item, i) => (
               <li key={i} style={{ background: '#fff', border: '1px solid var(--slate-200)', borderRadius: 12 }}>
-                <button onClick={() => setFaqOpen(faqOpen === i ? -1 : i)} style={{ width: '100%', textAlign: 'left', padding: '16px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, fontWeight: 800, fontSize: 15, background: 'none', border: 0, cursor: 'pointer' }}>
+                <button onClick={() => setFaqOpen(faqOpen === i ? -1 : i)} style={{ width: '100%', textAlign: 'left', padding: '16px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, fontWeight: 800, fontSize: 15, background: 'none', border: 0, cursor: 'pointer', fontFamily: 'inherit' }}>
                   <span>{item.q}</span>
                   <span style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--sky-50)', color: 'var(--sky-700)', display: 'grid', placeItems: 'center', fontSize: 18, fontWeight: 900, flexShrink: 0, transition: 'transform 0.2s', transform: faqOpen === i ? 'rotate(45deg)' : 'rotate(0)' }}>+</span>
                 </button>
@@ -682,7 +731,7 @@ export default function App() {
           <span className="pub-pill live" style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', borderColor: 'rgba(255,255,255,0.3)' }}>
             {remaining} vagas com preço de lançamento
           </span>
-          <h2 style={{ fontSize: 30, fontWeight: 900, color: '#fff', lineHeight: 1.15, marginTop: 14 }}>
+          <h2 style={{ fontSize: desktop ? 40 : 30, fontWeight: 900, color: '#fff', lineHeight: 1.15, marginTop: 14 }}>
             Médico no celular,<br />por menos que uma caixinha de remédio.
           </h2>
           <p style={{ marginTop: 12, opacity: 0.9, fontSize: 16, maxWidth: '32ch', marginInline: 'auto' }}>
@@ -698,7 +747,7 @@ export default function App() {
       {/* ── FOOTER ── */}
       <footer style={{ background: '#0b1220', color: '#cbd5e1', paddingBlock: '44px 24px' }}>
         <div className="pub-wrap">
-          <div style={{ display: 'grid', gap: 28 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: desktop ? '1.6fr 1fr 1fr 1fr' : '1fr', gap: desktop ? 32 : 28 }}>
             <div>
               <div style={{ display: 'inline-flex', padding: '8px 12px', background: '#fff', borderRadius: 10 }}>
                 <img src="/logo.png" alt="Saúde Agora 24h" style={{ height: 30 }} />
@@ -729,27 +778,33 @@ export default function App() {
               <div key={col.title}>
                 <div style={{ fontWeight: 900, color: '#fff', marginBottom: 14, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.14em' }}>{col.title}</div>
                 <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 10 }}>
-                  {col.links.map(l => <li key={l}><a href="#" style={{ color: '#cbd5e1', fontSize: 13.5, fontWeight: 600, opacity: 0.8 }}>{l}</a></li>)}
+                  {col.links.map(l => <li key={l}><a href="#" style={{ color: '#cbd5e1', fontSize: 13.5, fontWeight: 600, opacity: 0.8, textDecoration: 'none' }}>{l}</a></li>)}
                 </ul>
               </div>
             ))}
           </div>
 
-          <div style={{ marginTop: 36, padding: '20px 0', borderTop: '1px solid #1e293b', borderBottom: '1px solid #1e293b' }}>
-            <div style={{ fontSize: 10, fontWeight: 900, color: '#94a3b8', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 10 }}>Operação regulamentada</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
-              {[{ l: 'LGPD', s: 'Lei 13.709/18' }, { l: 'CFM', s: 'Res. 2.314/22' }, { l: 'Sigilo médico', s: 'Garantido' }, { l: '+500 médicos', s: 'CRM ativo' }].map(s => (
-                <div key={s.l} style={{ padding: '7px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid #1e293b', borderRadius: 8, fontSize: 11 }}>
-                  <div style={{ color: '#fff', fontWeight: 900 }}>{s.l}</div>
-                  <div style={{ color: '#64748b', fontWeight: 700, fontSize: 10, marginTop: 1 }}>{s.s}</div>
-                </div>
-              ))}
+          <div style={{ marginTop: 36, padding: '20px 0', borderTop: '1px solid #1e293b', borderBottom: '1px solid #1e293b', display: 'grid', gridTemplateColumns: desktop ? '1fr 1fr' : '1fr', gap: 20, alignItems: 'center' }}>
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 900, color: '#94a3b8', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 10 }}>Operação regulamentada</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {[{ l: 'LGPD', s: 'Lei 13.709/18' }, { l: 'CFM', s: 'Res. 2.314/22' }, { l: 'Sigilo médico', s: 'Garantido' }, { l: '+500 médicos', s: 'CRM ativo' }].map(s => (
+                  <div key={s.l} style={{ padding: '7px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid #1e293b', borderRadius: 8, fontSize: 11 }}>
+                    <div style={{ color: '#fff', fontWeight: 900 }}>{s.l}</div>
+                    <div style={{ color: '#64748b', fontWeight: 700, fontSize: 10, marginTop: 1 }}>{s.s}</div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div style={{ fontSize: 10, fontWeight: 900, color: '#94a3b8', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 10 }}>Formas de pagamento</div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {['Pix', 'Visa', 'Master', 'Elo', 'Boleto'].map(b => (
-                <div key={b} style={{ padding: '6px 10px', height: 28, background: '#fff', color: '#0f172a', borderRadius: 6, fontSize: 10, fontWeight: 900, display: 'grid', placeItems: 'center', minWidth: 44 }}>{b}</div>
-              ))}
+            <div style={{ display: desktop ? 'flex' : 'block', justifyContent: 'flex-end', alignItems: 'center', gap: 28 }}>
+              <div style={{ marginTop: desktop ? 0 : 20 }}>
+                <div style={{ fontSize: 10, fontWeight: 900, color: '#94a3b8', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 10 }}>Formas de pagamento</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {['Pix', 'Visa', 'Master', 'Elo', 'Boleto'].map(b => (
+                    <div key={b} style={{ padding: '6px 10px', height: 28, background: '#fff', color: '#0f172a', borderRadius: 6, fontSize: 10, fontWeight: 900, display: 'grid', placeItems: 'center', minWidth: 44 }}>{b}</div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -761,7 +816,6 @@ export default function App() {
               ))}
             </div>
           </div>
-
           <p style={{ marginTop: 18, padding: 14, background: 'rgba(255,255,255,0.03)', border: '1px solid #1e293b', borderRadius: 8, fontSize: 11, color: '#64748b', lineHeight: 1.6, fontWeight: 600 }}>
             <strong style={{ color: '#94a3b8' }}>Aviso médico:</strong> as informações apresentadas neste site não substituem consulta médica nem servem como diagnóstico. Em caso de emergência grave, procure o pronto-socorro mais próximo ou ligue para o SAMU (192).
           </p>
@@ -775,9 +829,7 @@ export default function App() {
       </a>
 
       {/* ── MODAL ── */}
-      {showModal && (
-        <Modal onClose={() => setShowModal(false)} selectedPlan={selectedPlan} onPlanChange={setSelectedPlan} remaining={remaining} />
-      )}
-    </>
+      {showModal && <Modal onClose={() => setShowModal(false)} selectedPlan={selectedPlan} onPlanChange={setSelectedPlan} remaining={remaining} />}
+    </div>
   );
 }
