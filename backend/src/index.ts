@@ -54,6 +54,22 @@ const createMeditelePatient = async (data: {
   }
 };
 
+// Busca paciente na Meditele por telefone — retorna o ID do paciente ou null
+const findPatientByPhone = async (phone: string): Promise<string | null> => {
+  try {
+    const clean = phone.replace(/\D/g, '');
+    const res = await axios.get(
+      `${MEDITELE_API_URL}/clinic/patients/paginated`,
+      { headers: mediteleHeaders, params: { phone: clean, limit: 1 } }
+    );
+    const patient = res.data?.data?.attributes?.[0];
+    return patient?.id ?? null;
+  } catch (err: any) {
+    console.error('[MEDITELE] Falha ao buscar paciente por telefone:', err.response?.data || err.message);
+    return null;
+  }
+};
+
 // Gera magic link de acesso do paciente (expira em 5 minutos — gerar só na hora de enviar)
 const getMagicLink = async (patientId: string): Promise<string | null> => {
   try {
@@ -361,28 +377,20 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
     return;
   }
 
-  // Normaliza: remove tudo que não é dígito
-  const cleanInput = String(phone).replace(/\D/g, '');
-  if (cleanInput.length < 8) {
+  const clean = String(phone).replace(/\D/g, '');
+  if (clean.length < 8) {
     res.status(400).json({ error: 'Telefone inválido.' });
     return;
   }
 
-  // Busca todos os usuários com telefone e compara normalizado
-  const users = await prisma.user.findMany({ where: { phone: { not: null } } });
-  const user = users.find(u => u.phone?.replace(/\D/g, '') === cleanInput);
-
-  if (!user) {
+  // Busca direto na Meditele por telefone
+  const patientId = await findPatientByPhone(clean);
+  if (!patientId) {
     res.status(404).json({ error: 'Nenhum assinante encontrado com este telefone.' });
     return;
   }
 
-  if (!user.lsxToken) {
-    res.status(400).json({ error: 'Assinante encontrado, mas sem acesso ao portal gerado. Entre em contato pelo WhatsApp.' });
-    return;
-  }
-
-  const link = await getMagicLink(user.lsxToken);
+  const link = await getMagicLink(patientId);
   if (!link) {
     res.status(502).json({ error: 'Não foi possível gerar o link de acesso. Tente novamente em instantes.' });
     return;
