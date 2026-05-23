@@ -291,6 +291,9 @@ export default function App() {
   const [selectedPlan, setSelectedPlan] = useState('FAMILIAR');
   const [faqOpen, setFaqOpen] = useState(-1);
   const [espFilter, setEspFilter] = useState<EspFilter>('todas');
+  const [loginPhone, setLoginPhone] = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState('');
 
   useEffect(() => {
     const onResize = () => setDesktop(window.innerWidth >= 1024);
@@ -308,6 +311,21 @@ export default function App() {
   }, []);
 
   const openModal = (planId: string) => { setSelectedPlan(planId); setShowModal(true); };
+
+  const handleLogin = async () => {
+    const clean = loginPhone.replace(/\D/g, '');
+    if (clean.length < 8) { setLoginError('Digite um telefone válido.'); return; }
+    setLoginLoading(true);
+    setLoginError('');
+    try {
+      const r = await axios.post(`${API}/api/auth/login`, { phone: clean });
+      window.location.href = r.data.magicLink;
+    } catch (e: any) {
+      setLoginError(e.response?.data?.error || 'Erro ao entrar. Tente novamente.');
+    } finally {
+      setLoginLoading(false);
+    }
+  };
 
   const espTabs: { id: EspFilter; l: string; c: number }[] = [
     { id: 'todas', l: 'Todas', c: ESPECIALIDADES.length },
@@ -335,15 +353,28 @@ export default function App() {
           )}
 
           {desktop ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-3)' }}>Já é assinante?</span>
-              <div style={{ display: 'flex', alignItems: 'center', border: '1.5px solid var(--slate-200)', borderRadius: 999, background: '#fff', padding: 3 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 10px 0 12px' }}>
-                  <WaIcon size={14} />
-                  <input style={{ border: 0, outline: 0, background: 'transparent', fontSize: 13, fontWeight: 700, width: 130, color: 'var(--ink)', fontFamily: 'inherit' }} placeholder="(00) 9 9999-9999" />
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-3)' }}>Já é assinante?</span>
+                <div style={{ display: 'flex', alignItems: 'center', border: `1.5px solid ${loginError ? '#ef4444' : 'var(--slate-200)'}`, borderRadius: 999, background: '#fff', padding: 3 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 10px 0 12px' }}>
+                    <WaIcon size={14} />
+                    <input
+                      value={loginPhone}
+                      onChange={e => { setLoginPhone(e.target.value); setLoginError(''); }}
+                      onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                      style={{ border: 0, outline: 0, background: 'transparent', fontSize: 13, fontWeight: 700, width: 130, color: 'var(--ink)', fontFamily: 'inherit' }}
+                      placeholder="(00) 9 9999-9999"
+                    />
+                  </div>
+                  <button
+                    onClick={handleLogin}
+                    disabled={loginLoading}
+                    style={{ background: 'var(--sky-700)', color: '#fff', borderRadius: 999, padding: '8px 16px', fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap', border: 0, cursor: loginLoading ? 'default' : 'pointer', fontFamily: 'inherit', opacity: loginLoading ? 0.7 : 1 }}
+                  >{loginLoading ? '...' : 'Entrar'}</button>
                 </div>
-                <button style={{ background: 'var(--sky-700)', color: '#fff', borderRadius: 999, padding: '8px 16px', fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap', border: 0, cursor: 'pointer', fontFamily: 'inherit' }}>Entrar</button>
               </div>
+              {loginError && <span style={{ fontSize: 11, color: '#ef4444', fontWeight: 600 }}>{loginError}</span>}
             </div>
           ) : (
             <button className="pub-btn pub-btn-primary" style={{ padding: '9px 16px', fontSize: 13 }} onClick={() => openModal('FAMILIAR')}>
