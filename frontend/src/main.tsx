@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import App from './App.tsx';
 import PrivacidadePage from './PrivacidadePage.tsx';
 import TermosPage from './TermosPage.tsx';
+import AdminApp from './admin/AdminApp.tsx';
 import './index.css';
 
 ReactDOM.createRoot(document.getElementById('app')!).render(
@@ -13,6 +14,7 @@ ReactDOM.createRoot(document.getElementById('app')!).render(
         <Route path="/" element={<App />} />
         <Route path="/privacidade" element={<PrivacidadePage />} />
         <Route path="/termos" element={<TermosPage />} />
+        <Route path="/admin/*" element={<AdminApp />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>,

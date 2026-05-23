@@ -284,6 +284,30 @@ app.post('/api/admin/disparar-lancamento', adminAuth, async (req: Request, res: 
   res.json({ message: 'Disparo concluído', total: leads.length, enviados, erros });
 });
 
+app.post('/api/admin/users/:id/magic-link', adminAuth, async (req: Request, res: Response) => {
+  const userId = req.params.id as string;
+  try {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      res.status(404).json({ error: 'Usuário não encontrado.' });
+      return;
+    }
+    if (!user.lsxToken) {
+      res.status(400).json({ error: 'Usuário não possui ID Meditele.' });
+      return;
+    }
+    const link = await getMagicLink(user.lsxToken);
+    if (!link) {
+      res.status(502).json({ error: 'Falha ao gerar magic link na Meditele.' });
+      return;
+    }
+    res.json({ magicLink: link });
+  } catch (err: any) {
+    console.error('[MAGIC LINK]', err);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
 app.post('/api/webhook/consulta-finalizada', async (req: Request, res: Response) => {
   const { patientId, consultId } = req.body;
   console.log(`[WEBHOOK] Consulta ${consultId} finalizada para paciente Meditele ${patientId}`);
