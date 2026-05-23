@@ -324,7 +324,107 @@ app.post('/api/admin/users/:id/magic-link', adminAuth, async (req: Request, res:
   }
 });
 
-// --- VINCULAR PACIENTE LSX AO BANCO LOCAL ---
+// --- SINCRONIZAÇÃO LSX ↔ BANCO LOCAL ---
+
+// Busca todos os pacientes da LSX (resolve paginação)
+const fetchAllLsxPatients = async (): Promise<any[]> => {
+  const all: any[] = [];
+  let page = 1;
+  while (true) {
+    const res = await axios.get(`${MEDITELE_API_URL}/clinic/patients/paginated`, {
+      headers: mediteleHeaders, params: { page, limit: 50 },
+    });
+    const items: any[] = res.data?.data?.attributes ?? [];
+    all.push(...items);
+    const total: number = res.data?.data?.pagination?.total ?? 0;
+    if (all.length >= total || items.length === 0) break;
+    page++;
+  }
+  return all;
+};
+
+// Preview: mostra o que será sincronizado sem alterar nada
+app.get('/api/admin/sync-lsx/preview', adminAuth, async (req: Request, res: Response) => {
+  try {
+    const lsxPatients = await fetchAllLsxPatients();
+    const localUsers  = await prisma.user.findMany({ select: { cpf: true, lsxToken: true } });
+    const localCpfs   = new Set(localUsers.map(u => u.cpf));
+
+    const toCreate  = lsxPatients.filter(p => !localCpfs.has(p.cpf?.replace(/\D/g, '')));
+    const toUpdate  = lsxPatients.filter(p => {
+      const cpf = p.cpf?.replace(/\D/g, '');
+      const local = localUsers.find(u => u.cpf === cpf);
+      return local && !local.lsxToken;
+    });
+    const synced = lsxPatients.length - toCreate.length - toUpdate.length;
+
+    res.json({
+      lsxTotal: lsxPatients.length,
+      localTotal: localUsers.length,
+      toCreate: toCreate.length,
+      toUpdate: toUpdate.length,
+      synced,
+    });
+  } catch (err: any) {
+    console.error('[SYNC PREVIEW]', err);
+    res.status(500).json({ error: 'Erro ao buscar dados da LSX.' });
+  }
+});
+
+// Executa a sincronização
+app.post('/api/admin/sync-lsx', adminAuth, async (req: Request, res: Response) => {
+  try {
+    const lsxPatients = await fetchAllLsxPatients();
+    const localUsers  = await prisma.user.findMany({ select: { id: true, cpf: true, lsxToken: true } });
+    const localByCpf  = new Map(localUsers.map(u => [u.cpf, u]));
+
+    let created = 0, updated = 0, skipped = 0;
+    const errors: string[] = [];
+
+    for (const p of lsxPatients) {
+      const cpf = p.cpf?.replace(/\D/g, '');
+      if (!cpf) { skipped++; continue; }
+
+      const local = localByCpf.get(cpf);
+
+      if (!local) {
+        // Não existe localmente — criar
+        try {
+          const passwordHash = await bcrypt.hash(Math.random().toString(36) + cpf, 10);
+          await prisma.user.create({
+            data: {
+              name: p.name?.trim() || 'Paciente LSX',
+              email: p.email || `${cpf}@lsx.sync`,
+              cpf,
+              phone: p.phone?.replace(/\D/g, '') || null,
+              passwordHash,
+              lsxToken: p.id,
+            },
+          });
+          created++;
+        } catch (e: any) {
+          errors.push(`CPF ${cpf}: ${e.message}`);
+        }
+      } else if (!local.lsxToken) {
+        // Existe mas sem lsxToken — atualizar
+        await prisma.user.update({
+          where: { id: local.id },
+          data: { lsxToken: p.id },
+        });
+        updated++;
+      } else {
+        skipped++;
+      }
+    }
+
+    res.json({ message: 'Sincronização concluída.', created, updated, skipped, errors });
+  } catch (err: any) {
+    console.error('[SYNC]', err);
+    res.status(500).json({ error: 'Erro durante a sincronização.' });
+  }
+});
+
+// --- VINCULAR PACIENTE LSX AO BANCO LOCAL (mantido para compatibilidade) ---
 
 app.post('/api/admin/vincular-paciente', adminAuth, async (req: Request, res: Response) => {
   const { name, phone, email, cpf, lsxPatientId, planType } = req.body;

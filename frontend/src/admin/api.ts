@@ -62,6 +62,12 @@ export const adminApi = {
       `${BASE}/api/admin/users/${userId}/magic-link`, {}, { headers: H }
     ).then(r => r.data),
 
+  syncLsxPreview: () =>
+    axios.get(`${BASE}/api/admin/sync-lsx/preview`, { headers: H }).then(r => r.data),
+
+  syncLsx: () =>
+    axios.post(`${BASE}/api/admin/sync-lsx`, {}, { headers: H }).then(r => r.data),
+
   vincularPaciente: (data: {
     name: string; phone: string; email: string; cpf: string;
     lsxPatientId: string; planType?: string;
