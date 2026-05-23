@@ -5,13 +5,10 @@ const API = 'https://saudeagora24h.com.br/api-backend';
 const TOTAL_VAGAS = 50;
 const WA_LINK = 'https://wa.me/558799990000';
 
-const EPOCH = new Date('2026-04-19T08:00:00-03:00').getTime();
-const BASE_TAKEN = 29;
-const PERIOD_MS = 4 * 60 * 60 * 1000;
+const PSYCH_POOL = [13, 14, 15, 16, 17];
 
 function getPsych(): number {
-  const periods = Math.floor(Math.max(0, Date.now() - EPOCH) / PERIOD_MS);
-  return TOTAL_VAGAS - Math.min(BASE_TAKEN + periods * 2, TOTAL_VAGAS - 1);
+  return PSYCH_POOL[Math.floor(Math.random() * PSYCH_POOL.length)];
 }
 
 /* ── Types ── */
@@ -289,7 +286,7 @@ function Modal({ onClose, selectedPlan, onPlanChange, remaining }: ModalProps) {
 ══════════════════════════════════════════ */
 export default function App() {
   const [desktop, setDesktop] = useState(() => window.innerWidth >= 1024);
-  const [remaining, setRemaining] = useState(getPsych);
+  const [remaining] = useState(getPsych);
   const [showModal, setShowModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState('FAMILIAR');
   const [faqOpen, setFaqOpen] = useState(-1);
@@ -302,9 +299,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    axios.get(`${API}/api/leads/count`)
-      .then(r => setRemaining(Math.min(r.data.remaining, getPsych())))
-      .catch(() => {});
+    axios.get(`${API}/api/leads/count`).catch(() => {});
   }, []);
 
   useEffect(() => {
