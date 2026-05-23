@@ -1,0 +1,97 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(uuid())
+  name          String
+  email         String         @unique
+  cpf           String         @unique
+  phone         String?
+  passwordHash  String
+  lsxToken      String?        // Token gerado pela API da LSX
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  subscriptions Subscription[]
+  coupons       CouponUse[]    // Uso de cupons pelo usuário
+}
+
+model Plan {
+  id            String         @id @default(uuid())
+  name          String         // Ex: Individual, Familiar
+  price         Decimal        @db.Decimal(10, 2)
+  type          String         // INDIVIDUAL, FAMILIAR
+  createdAt     DateTime       @default(now())
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  planId    String
+  plan      Plan     @relation(fields: [planId], references: [id])
+  status    String   // ACTIVE, CANCELLED, PENDING
+  startDate DateTime @default(now())
+  endDate   DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Partner {
+  id          String       @id @default(uuid())
+  name        String       // Nome da Farmácia / Laboratório
+  type        String       // PHARMACY, LABORATORY
+  contact     String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  commissions Commission[]
+  coupons     Coupon[]
+}
+
+model Coupon {
+  id           String      @id @default(uuid())
+  code         String      @unique // Ex: DESC10
+  discountDesc String      // Ex: "10% de desconto"
+  partnerId    String
+  partner      Partner     @relation(fields: [partnerId], references: [id])
+  isActive     Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  usages       CouponUse[]
+}
+
+model CouponUse {
+  id           String       @id @default(uuid())
+  userId       String
+  user         User         @relation(fields: [userId], references: [id])
+  couponId     String
+  coupon       Coupon       @relation(fields: [couponId], references: [id])
+  usedAt       DateTime     @default(now())
+  purchaseValue Decimal?    @db.Decimal(10, 2) // Valor total gasto no parceiro
+  commission   Commission?
+}
+
+model Commission {
+  id          String    @id @default(uuid())
+  partnerId   String
+  partner     Partner   @relation(fields: [partnerId], references: [id])
+  couponUseId String    @unique
+  couponUse   CouponUse @relation(fields: [couponUseId], references: [id])
+  amount      Decimal   @db.Decimal(10, 2)
+  status      String    // PENDING, PAID
+  createdAt   DateTime  @default(now())
+  paidAt      DateTime?
+}
+
+model Lead {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String   @unique
+  plan      String   // INDIVIDUAL, FAMILIAR, AVULSO
+  createdAt DateTime @default(now())
+}
