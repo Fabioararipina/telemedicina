@@ -374,7 +374,6 @@ export default function App() {
             </div>
             <VagasCounter remaining={remaining} />
             <ul style={{ listStyle: 'none', padding: 0, margin: '18px 0 0', display: 'grid', gap: 6, fontSize: 13.5, color: 'var(--ink-2)', fontWeight: 700 }}>
-              <li>✓ Sem mensalidade no 1º mês</li>
               <li>✓ Atestado médico em PDF</li>
               <li>✓ Atende família inteira no plano Familiar</li>
             </ul>
