@@ -34,6 +34,7 @@ export function Sidebar({ active, onNav }: SidebarProps) {
     { id: 'rep-operacional', label: 'Operacional', icon: Ic.reports },
   ];
   const navMisc: NavItem[] = [
+    { id: 'vincular-paciente', label: 'Vincular Paciente LSX', icon: Ic.users },
     { id: 'parceiros', label: 'Parceiros & Cupons', icon: Ic.partners },
     { id: 'usuarios', label: 'Usuários', icon: Ic.users },
     { id: 'config', label: 'Configurações', icon: Ic.settings },

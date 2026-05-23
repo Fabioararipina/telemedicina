@@ -308,6 +308,50 @@ app.post('/api/admin/users/:id/magic-link', adminAuth, async (req: Request, res:
   }
 });
 
+// --- VINCULAR PACIENTE LSX AO BANCO LOCAL ---
+
+app.post('/api/admin/vincular-paciente', adminAuth, async (req: Request, res: Response) => {
+  const { name, phone, email, cpf, lsxPatientId, planType } = req.body;
+
+  if (!name || !phone || !email || !cpf || !lsxPatientId) {
+    res.status(400).json({ error: 'Campos obrigatórios: name, phone, email, cpf, lsxPatientId.' });
+    return;
+  }
+
+  const cleanCpf = String(cpf).replace(/\D/g, '');
+
+  const existing = await prisma.user.findFirst({
+    where: { OR: [{ email }, { cpf: cleanCpf }] },
+  });
+  if (existing) {
+    res.status(400).json({ error: 'E-mail ou CPF já cadastrado no sistema.' });
+    return;
+  }
+
+  // Gera hash aleatório — login é via magic link, não senha
+  const passwordHash = await bcrypt.hash(Math.random().toString(36) + Date.now(), 10);
+
+  try {
+    const user = await prisma.user.create({
+      data: { name, phone, email, cpf: cleanCpf, passwordHash, lsxToken: lsxPatientId },
+    });
+
+    if (planType) {
+      const plan = await prisma.plan.findFirst({ where: { type: planType } });
+      if (plan) {
+        await prisma.subscription.create({
+          data: { userId: user.id, planId: plan.id, status: 'ACTIVE' },
+        });
+      }
+    }
+
+    res.status(201).json({ message: 'Paciente vinculado com sucesso.', userId: user.id });
+  } catch (err: any) {
+    console.error('[VINCULAR]', err);
+    res.status(500).json({ error: 'Erro interno ao vincular paciente.' });
+  }
+});
+
 // --- LOGIN PÚBLICO VIA TELEFONE ---
 
 app.post('/api/auth/login', async (req: Request, res: Response) => {

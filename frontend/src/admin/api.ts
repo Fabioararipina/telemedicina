@@ -61,6 +61,14 @@ export const adminApi = {
     axios.post<{ magicLink: string }>(
       `${BASE}/api/admin/users/${userId}/magic-link`, {}, { headers: H }
     ).then(r => r.data),
+
+  vincularPaciente: (data: {
+    name: string; phone: string; email: string; cpf: string;
+    lsxPatientId: string; planType?: string;
+  }) =>
+    axios.post<{ message: string; userId: string }>(
+      `${BASE}/api/admin/vincular-paciente`, data, { headers: H }
+    ).then(r => r.data),
 };
 
 /* ── Helpers ── */
