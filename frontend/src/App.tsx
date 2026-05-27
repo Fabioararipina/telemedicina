@@ -1,9 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import medicosImg from './assets/medicos.png';
+import personaDonaMariaImg from './assets/persona-dona-maria.png';
+import personaSeuJoaoImg from './assets/persona-seu-joao.png';
+import personaJoanaImg from './assets/persona-joana.png';
+import personaCiceroImg from './assets/persona-cicero.png';
+import personaFamiliaSilvaImg from './assets/persona-familia-silva.png';
+import personaLuciaImg from './assets/persona-lucia.png';
 
 const API = 'https://saudeagora24h.com.br/api-backend';
 const TOTAL_VAGAS = 50;
-const WA_LINK = 'https://wa.me/558799990000';
+const WA_LINK = 'https://wa.me/5587996593551';
 
 const PSYCH_POOL = [13, 14, 15, 16, 17];
 
@@ -16,97 +23,134 @@ interface EspItem {
   cat: '24h' | 'adulto' | 'infantil' | 'mental';
   n: string; note: string;
   urgent?: boolean; kids?: boolean; mental?: boolean;
+  mediteleId?: string; price?: number;
 }
+interface MedEsp { id: string; name: string; price: number; clinicSpecialtyId?: string; }
 interface PlanData {
-  id: string; name: string; price: string; strike: string; period: string;
+  id: string;           // UUID do banco (planos da API) ou tipo string (PLANS_DEFAULT fallback)
+  planType?: string;    // INDIVIDUAL | FAMILIAR | AVULSO (sempre preenchido nos planos da API)
+  name: string; price: string; strike: string; period: string;
   desc: string; perks: string[]; cta: string; highlight: boolean; tag: string | null;
 }
 interface PacoteItem { freq: string; n: string; total: string; per: string; save?: string }
 interface PacoteData { area: string; color: string; colorSoft: string; items: PacoteItem[] }
+interface SelectedPacote { area: string; color: string; colorSoft: string; item: PacoteItem }
 type CtaVariant = 'signup' | 'whatsapp' | 'start';
 type EspFilter = 'todas' | '24h' | 'adulto' | 'infantil' | 'mental';
 
 /* ── Data ── */
-const ESPECIALIDADES: EspItem[] = [
-  { cat: '24h', n: 'Clínica Geral', note: 'incluso no plano', urgent: true },
+// Especialidades 24h fixas (incluídas no plano)
+const ESP_24H: EspItem[] = [
+  { cat: '24h', n: 'Clínica Geral',     note: 'incluso no plano', urgent: true },
   { cat: '24h', n: 'Médico da Família', note: 'incluso no plano', urgent: true },
-  { cat: '24h', n: 'Pediatria', note: 'incluso no plano · 0–17 anos', urgent: true, kids: true },
-  { cat: 'adulto', n: 'Cardiologia', note: 'R$ 150 avulsa' },
-  { cat: 'adulto', n: 'Dermatologia', note: 'R$ 150 avulsa' },
-  { cat: 'adulto', n: 'Endocrinologia', note: 'R$ 150 avulsa' },
-  { cat: 'adulto', n: 'Ginecologia', note: 'R$ 150 avulsa' },
-  { cat: 'adulto', n: 'Geriatria', note: 'R$ 150 avulsa' },
-  { cat: 'adulto', n: 'Ortopedia', note: 'R$ 150 avulsa' },
-  { cat: 'adulto', n: 'Otorrinolaringologia', note: 'R$ 150 avulsa' },
-  { cat: 'adulto', n: 'Urologia', note: 'R$ 150 avulsa' },
-  { cat: 'adulto', n: 'Neurologia', note: 'R$ 180 avulsa' },
-  { cat: 'adulto', n: 'Reumatologia', note: 'R$ 150 avulsa' },
-  { cat: 'adulto', n: 'Gastroenterologia', note: 'R$ 150 avulsa' },
-  { cat: 'adulto', n: 'Pneumologia', note: 'R$ 150 avulsa' },
-  { cat: 'adulto', n: 'Angiologia', note: 'R$ 150 avulsa' },
-  { cat: 'adulto', n: 'Alergologia', note: 'R$ 150 avulsa' },
-  { cat: 'adulto', n: 'Hematologia', note: 'R$ 150 avulsa' },
-  { cat: 'adulto', n: 'Infectologia', note: 'R$ 150 avulsa' },
-  { cat: 'adulto', n: 'Nefrologia', note: 'R$ 150 avulsa' },
-  { cat: 'adulto', n: 'Sexologia Clínica', note: 'R$ 150 avulsa' },
-  { cat: 'adulto', n: 'Nutrologia', note: 'R$ 150 avulsa' },
-  { cat: 'adulto', n: 'Fisiatria', note: 'R$ 150 avulsa' },
-  { cat: 'adulto', n: 'Clínica Médica', note: 'R$ 120 avulsa' },
-  { cat: 'infantil', n: 'Alergologia Infantil', note: 'R$ 150 avulsa', kids: true },
-  { cat: 'infantil', n: 'Endocrinologia Infantil', note: 'R$ 150 avulsa', kids: true },
-  { cat: 'infantil', n: 'Neurologia Infantil', note: 'R$ 180 avulsa', kids: true },
-  { cat: 'infantil', n: 'Ortopedia Infantil', note: 'R$ 150 avulsa', kids: true },
-  { cat: 'infantil', n: 'Reumatologia Infantil', note: 'R$ 150 avulsa', kids: true },
-  { cat: 'infantil', n: 'Pneumologia Infantil', note: 'R$ 150 avulsa', kids: true },
-  { cat: 'infantil', n: 'Gastroenterologia Infantil', note: 'R$ 150 avulsa', kids: true },
-  { cat: 'mental', n: 'Psicologia', note: 'R$ 69,90 avulsa', mental: true },
-  { cat: 'mental', n: 'Psiquiatria', note: 'R$ 150 avulsa', mental: true },
-  { cat: 'mental', n: 'Psicologia Infantil', note: 'R$ 69,90 avulsa', mental: true, kids: true },
-  { cat: 'mental', n: 'Psiquiatria Infantil', note: 'R$ 150 avulsa', mental: true, kids: true },
-  { cat: 'mental', n: 'Nutricionista', note: 'R$ 69,90 avulsa' },
-  { cat: 'mental', n: 'Fisioterapia', note: 'R$ 69,90 avulsa' },
+  { cat: '24h', n: 'Pediatria',         note: 'incluso no plano · 0–17 anos', urgent: true, kids: true },
 ];
 
-const PLANS: PlanData[] = [
+// Converte especialidade Meditele para EspItem
+function medToEsp(m: MedEsp): EspItem {
+  const n = m.name.toLowerCase();
+  const isInfantil = n.includes('infantil') || n.includes('pediátr') || n.includes('pediatr');
+  const isMental = n.includes('psicolog') || n.includes('psiquiat') || n.includes('nutri') || n.includes('fisio') || n.includes('terapia');
+  const cat: EspItem['cat'] = isInfantil ? 'infantil' : isMental ? 'mental' : 'adulto';
+  const priceStr = `R$ ${m.price.toFixed(2).replace('.', ',')} / consulta`;
+  return {
+    cat, n: m.name, note: priceStr,
+    kids: isInfantil, mental: isMental && !isInfantil,
+    mediteleId: m.id, price: m.price,
+  };
+}
+
+// Fallback hardcoded (usado se API Meditele ainda não tiver especialidades configuradas)
+const ESP_FALLBACK: EspItem[] = [
+  { cat: 'adulto',   n: 'Cardiologia',          note: 'R$ 150 / consulta', price: 150 },
+  { cat: 'adulto',   n: 'Dermatologia',          note: 'R$ 150 / consulta', price: 150 },
+  { cat: 'adulto',   n: 'Endocrinologia',        note: 'R$ 150 / consulta', price: 150 },
+  { cat: 'adulto',   n: 'Ginecologia',           note: 'R$ 150 / consulta', price: 150 },
+  { cat: 'adulto',   n: 'Geriatria',             note: 'R$ 150 / consulta', price: 150 },
+  { cat: 'adulto',   n: 'Ortopedia',             note: 'R$ 150 / consulta', price: 150 },
+  { cat: 'adulto',   n: 'Otorrinolaringologia',  note: 'R$ 150 / consulta', price: 150 },
+  { cat: 'adulto',   n: 'Urologia',              note: 'R$ 150 / consulta', price: 150 },
+  { cat: 'adulto',   n: 'Neurologia',            note: 'R$ 180 / consulta', price: 180 },
+  { cat: 'adulto',   n: 'Reumatologia',          note: 'R$ 150 / consulta', price: 150 },
+  { cat: 'adulto',   n: 'Gastroenterologia',     note: 'R$ 150 / consulta', price: 150 },
+  { cat: 'adulto',   n: 'Pneumologia',           note: 'R$ 150 / consulta', price: 150 },
+  { cat: 'adulto',   n: 'Angiologia',            note: 'R$ 150 / consulta', price: 150 },
+  { cat: 'adulto',   n: 'Alergologia',           note: 'R$ 150 / consulta', price: 150 },
+  { cat: 'adulto',   n: 'Hematologia',           note: 'R$ 150 / consulta', price: 150 },
+  { cat: 'adulto',   n: 'Infectologia',          note: 'R$ 150 / consulta', price: 150 },
+  { cat: 'adulto',   n: 'Nefrologia',            note: 'R$ 150 / consulta', price: 150 },
+  { cat: 'adulto',   n: 'Sexologia Clínica',     note: 'R$ 150 / consulta', price: 150 },
+  { cat: 'adulto',   n: 'Nutrologia',            note: 'R$ 150 / consulta', price: 150 },
+  { cat: 'adulto',   n: 'Clínica Médica',        note: 'R$ 120 / consulta', price: 120 },
+  { cat: 'infantil', n: 'Alergologia Infantil',       note: 'R$ 150 / consulta', price: 150, kids: true },
+  { cat: 'infantil', n: 'Endocrinologia Infantil',    note: 'R$ 150 / consulta', price: 150, kids: true },
+  { cat: 'infantil', n: 'Neurologia Infantil',        note: 'R$ 180 / consulta', price: 180, kids: true },
+  { cat: 'infantil', n: 'Ortopedia Infantil',         note: 'R$ 150 / consulta', price: 150, kids: true },
+  { cat: 'infantil', n: 'Pneumologia Infantil',       note: 'R$ 150 / consulta', price: 150, kids: true },
+  { cat: 'infantil', n: 'Gastroenterologia Infantil', note: 'R$ 150 / consulta', price: 150, kids: true },
+  { cat: 'mental',   n: 'Psicologia',           note: 'R$ 69,90 / consulta', price: 69.90, mental: true },
+  { cat: 'mental',   n: 'Psiquiatria',          note: 'R$ 150 / consulta',   price: 150,   mental: true },
+  { cat: 'mental',   n: 'Psicologia Infantil',  note: 'R$ 69,90 / consulta', price: 69.90, mental: true, kids: true },
+  { cat: 'mental',   n: 'Psiquiatria Infantil', note: 'R$ 150 / consulta',   price: 150,   mental: true, kids: true },
+  { cat: 'mental',   n: 'Nutricionista',        note: 'R$ 69,90 / consulta', price: 69.90 },
+  { cat: 'mental',   n: 'Fisioterapia',         note: 'R$ 69,90 / consulta', price: 69.90 },
+];
+
+
+// Planos padrão (fallback enquanto carrega ou se API não retornar nada)
+const PLANS_DEFAULT: PlanData[] = [
   { id: 'INDIVIDUAL', name: 'Individual', price: '29,90', strike: '39,90', period: '/mês', desc: '1 pessoa, consultas ilimitadas.', perks: ['Clínico 24h ilimitado', '1 especialista por mês', 'Atestado médico'], cta: 'Quero o Individual', highlight: false, tag: null },
-  { id: 'FAMILIAR', name: 'Familiar', price: '59,90', strike: '69,90', period: '/mês', desc: 'Titular + 2 dependentes.', perks: ['Tudo do Individual ×3', 'Pediatra 24h', 'Sem coparticipação'], cta: 'Quero o Familiar', highlight: true, tag: 'Mais escolhido' },
+  { id: 'FAMILIAR', name: 'Familiar', price: '69,90', strike: '79,90', period: '/mês', desc: 'Titular + 2 dependentes.', perks: ['Tudo do Individual ×3', 'Pediatra 24h', 'Sem coparticipação'], cta: 'Quero o Familiar', highlight: true, tag: 'Mais escolhido' },
   { id: 'AVULSO', name: 'Avulso', price: '49,90', strike: '59,90', period: '30 dias', desc: 'Sem mensalidade. Pagou, falou.', perks: ['1 consulta com clínico', 'Atestado médico', 'Sem fidelidade'], cta: 'Comprar avulsa', highlight: false, tag: null },
 ];
 
+interface ApiLpPlan {
+  id: string; name: string; price: number; type: string;
+  description?: string | null; featured: boolean;
+  originalPrice?: number | null; features: string[];
+  ctaLabel?: string | null; periodLabel?: string | null;
+}
+
 const PACOTES: PacoteData[] = [
   { area: 'Psicologia', color: '#a855f7', colorSoft: '#faf5ff', items: [
-    { freq: 'Semanal', n: '4 sessões/mês', total: 'R$ 250,00', per: 'R$ 62,50/sessão', save: '10% off' },
-    { freq: 'Quinzenal', n: '2 sessões/mês', total: 'R$ 132,00', per: 'R$ 66,00/sessão' },
+    { freq: 'Semanal', n: '4 sessões/mês', total: 'R$ 300,00', per: 'R$ 75,00/sessão', save: '17% off' },
+    { freq: 'Quinzenal', n: '2 sessões/mês', total: 'R$ 180,00', per: 'R$ 90,00/sessão' },
   ]},
   { area: 'Fisioterapia', color: '#0284c7', colorSoft: '#f0f9ff', items: [
-    { freq: 'Semanal', n: '4 sessões/mês', total: 'R$ 250,00', per: 'R$ 62,50/sessão', save: '10% off' },
-    { freq: 'Quinzenal', n: '2 sessões/mês', total: 'R$ 132,00', per: 'R$ 66,00/sessão' },
+    { freq: 'Semanal', n: '4 sessões/mês', total: 'R$ 300,00', per: 'R$ 75,00/sessão', save: '12% off' },
+    { freq: 'Quinzenal', n: '2 sessões/mês', total: 'R$ 170,00', per: 'R$ 85,00/sessão' },
   ]},
   { area: 'Nutrição', color: '#16a34a', colorSoft: '#f0fdf4', items: [
-    { freq: 'Quinzenal', n: '2 sessões/mês', total: 'R$ 132,00', per: 'R$ 66,00/sessão' },
+    { freq: 'Quinzenal', n: '2 sessões/mês', total: 'R$ 170,00', per: 'R$ 85,00/sessão' },
   ]},
 ];
 
 const PERSONAS = [
-  { name: 'Dona Maria, 58', city: 'Petrolina · PE', pain: 'Dor nas costas. Não quer pegar ônibus pro posto.', fit: 'Clínico geral sem sair do sofá.', color: '#0ea5e9' },
-  { name: 'Seu João, 42', city: 'Crato · CE', pain: 'Filho com febre na madrugada de domingo.', fit: 'Pediatra 24h, sem hospital de plantão.', color: '#f59e0b' },
-  { name: 'Joana, 29', city: 'Teresina · PI', pain: 'Ansiedade. Não acha vaga em psiquiatra.', fit: 'Psicólogo agora, psiquiatra em 7 dias.', color: '#a855f7' },
-  { name: 'Família Silva', city: 'Caruaru · PE', pain: '4 pessoas, plano caro, atendimento ruim.', fit: 'Plano Familiar até 4 pessoas, R$ 59,90.', color: '#10b981' },
-  { name: 'Cícero, 67', city: 'Sobral · CE', pain: 'Diabetes, precisa de endócrino regular.', fit: 'Endocrinologia agendada em até 7 dias.', color: '#f87171' },
-  { name: 'Lúcia, 34', city: 'Juazeiro · BA', pain: 'Quer acompanhamento nutricional contínuo.', fit: 'Pacote nutrição quinzenal por R$ 132/mês.', color: '#0369a1' },
+  { name: 'Dona Maria, 58', city: 'Araripina · PE', pain: 'Dor nas costas. Não quer pegar ônibus pro posto.', fit: 'Clínico geral sem sair do sofá.', color: '#0ea5e9', photo: personaDonaMariaImg },
+  { name: 'Seu João, 42', city: 'Trindade · PE', pain: 'Filho com febre na madrugada de domingo.', fit: 'Pediatra 24h, sem hospital de plantão.', color: '#f59e0b', photo: personaSeuJoaoImg },
+  { name: 'Joana, 29', city: 'Ouricuri · PE', pain: 'Ansiedade. Não acha vaga em psiquiatra.', fit: 'Psicólogo agora, psiquiatra em 7 dias.', color: '#a855f7', photo: personaJoanaImg },
+  { name: 'Família Silva', city: 'Ipubi · PE', pain: '4 pessoas, plano caro, atendimento ruim.', fit: 'Plano Familiar até 3 pessoas, R$ 69,90.', color: '#10b981', photo: personaFamiliaSilvaImg },
+  { name: 'Cícero, 67', city: 'Bodocó · PE', pain: 'Diabetes, precisa de endócrino regular.', fit: 'Endocrinologia agendada em até 7 dias.', color: '#f87171', photo: personaCiceroImg },
+  { name: 'Lúcia, 34', city: 'Salgueiro · PE', pain: 'Quer acompanhamento nutricional contínuo.', fit: 'Pacote nutrição quinzenal por R$ 132/mês.', color: '#0369a1', photo: personaLuciaImg },
 ];
 
 const TESTIMONIALS = [
-  { q: 'Resolvi tudo pelo celular numa madrugada. Nunca mais quero hospital de plantão.', n: 'Cícero, 51', c: 'Petrolina · PE' },
-  { q: 'Minha mãe não sabia usar app. Hoje liga a chamada com o médico sozinha.', n: 'Lúcia, 34', c: 'Juazeiro · BA' },
-  { q: 'Pago menos que a farmácia popular cobrava por mês. E não preciso sair de casa.', n: 'Roberval, 47', c: 'Teresina · PI' },
+  { q: 'Resolvi tudo pelo celular numa madrugada. Nunca mais quero hospital de plantão.', n: 'Cícero, 51', c: 'Bodocó · PE', since: 'Cliente desde fev/2025' },
+  { q: 'Minha mãe não sabia usar app. Hoje liga a chamada com o médico sozinha.', n: 'Lúcia, 34', c: 'Salgueiro · PE', since: 'Cliente desde jan/2025' },
+  { q: 'Pago menos que a farmácia popular cobrava por mês. E não preciso sair de casa.', n: 'Roberval, 47', c: 'Ouricuri · PE', since: 'Cliente desde mar/2025' },
 ];
 
 const FAQS = [
   { q: 'O médico é de verdade mesmo?', a: 'Sim. Todos têm CRM ativo, regulamentado pelo CFM. Você vê o nome e o número do registro antes de começar a consulta.' },
-  { q: 'Como funciona o atestado?', a: 'Você recebe o atestado em PDF no WhatsApp, com assinatura digital do médico e CRM. Vale pra trabalho e escola.' },
-  { q: 'Posso usar pra família toda?', a: 'Sim, no plano Familiar até 3 pessoas (titular + 2 dependentes) compartilham o plano por R$ 59,90/mês.' },
-  { q: 'Posso cancelar quando quiser?', a: 'Pode. Pelo próprio app, em 2 toques, sem multa e sem precisar ligar pra ninguém.' },
+  { q: 'Como funciona o atestado?', a: 'Você recebe o atestado em PDF no WhatsApp, com assinatura digital do médico e CRM. Vale pra trabalho e escola — tem validade legal igual ao atestado presencial, conforme regulamentação do CFM.' },
+  { q: 'Posso usar pra família toda?', a: 'Sim, no plano Familiar até 3 pessoas (titular + 2 dependentes) compartilham o plano por R$ 69,90/mês.' },
+  { q: 'Posso cancelar quando quiser?', a: 'Sim. Após o período mínimo de fidelidade de 3 meses, o cancelamento é livre e sem burocracia. Cancelamentos durante o período de fidelidade estão sujeitos a multa de 20% sobre o saldo das mensalidades restantes, conforme nossos Termos e Condições.' },
+  { q: 'O médico pode receitar medicamentos controlados?', a: 'Não. A legislação vigente (CFM 2.314/22) não permite receita de controlados por telemedicina. Para outros medicamentos comuns, a prescrição é permitida e chega por PDF no WhatsApp. Controlados exigem consulta presencial.' },
+  { q: 'O serviço funciona em emergências?', a: 'A telemedicina não substitui emergências graves. Em casos como dor no peito intensa, falta de ar severa, perda de consciência ou suspeita de AVC, ligue para o SAMU (192) ou vá ao pronto-socorro. Nossos médicos te orientam a identificar exatamente quando o caso exige isso.' },
+  { q: 'Posso usar em qualquer estado do Brasil?', a: 'Sim. O serviço funciona em todo o Brasil, desde que você tenha conexão à internet. O médico atende por videochamada — você pode estar em qualquer lugar do país.' },
+  { q: 'Quanto tempo dura a consulta?', a: 'Entre 15 e 30 minutos para consultas clínicas. Não há limite rígido — o médico fica até resolver sua dúvida. Consultas com psicólogo duram entre 45 e 50 minutos.' },
+  { q: 'O que acontece se o médico achar que preciso ir ao presencial?', a: 'Ele te diz claramente que o caso precisa de avaliação presencial e te orienta qual especialidade ou serviço procurar. Nosso compromisso é nunca empurrar consulta online quando o presencial é o certo.' },
+  { q: 'Como funciona o cancelamento na prática?', a: 'Pelo app ou pelo WhatsApp do suporte. Após 3 meses de plano ativo, é só pedir e o plano encerra no fim do ciclo vigente, sem cobrança extra. Se cancelar antes dos 3 meses, aplica-se multa de 20% sobre as mensalidades restantes do período.' },
 ];
 
 /* ── Icons ── */
@@ -138,17 +182,236 @@ function VagasCounter({ remaining }: { remaining: number }) {
   );
 }
 
-function EspChip({ e }: { e: EspItem }) {
+function EspChip({ e, onBook }: { e: EspItem; onBook?: (e: EspItem) => void }) {
   const bg = e.urgent ? 'var(--green-50)' : e.mental ? '#faf5ff' : e.kids ? 'var(--amber-50)' : 'var(--sky-50)';
   const color = e.urgent ? 'var(--green-700)' : e.mental ? '#7e22ce' : e.kids ? 'var(--amber-600)' : 'var(--sky-700)';
+  const clickable = !!onBook;
   return (
-    <div style={{ background: '#fff', border: '1px solid var(--slate-200)', borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+    <div
+      onClick={clickable ? () => onBook!(e) : undefined}
+      style={{
+        background: '#fff',
+        border: `1.5px solid ${clickable ? 'var(--sky-200)' : 'var(--slate-200)'}`,
+        borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10,
+        cursor: clickable ? 'pointer' : 'default',
+        transition: 'border-color 0.15s, box-shadow 0.15s',
+      }}
+      onMouseEnter={clickable ? e2 => { (e2.currentTarget as HTMLDivElement).style.borderColor = 'var(--sky-400)'; (e2.currentTarget as HTMLDivElement).style.boxShadow = '0 2px 8px rgba(14,165,233,0.15)'; } : undefined}
+      onMouseLeave={clickable ? e2 => { (e2.currentTarget as HTMLDivElement).style.borderColor = 'var(--sky-200)'; (e2.currentTarget as HTMLDivElement).style.boxShadow = 'none'; } : undefined}
+    >
       <div style={{ width: 30, height: 30, borderRadius: 8, background: bg, color, display: 'grid', placeItems: 'center', flexShrink: 0, fontWeight: 900, fontSize: 13 }}>
         {e.urgent ? '●' : e.mental ? '✦' : e.kids ? '◆' : '■'}
       </div>
       <div style={{ minWidth: 0, flex: 1 }}>
         <div style={{ fontSize: 13, fontWeight: 800, lineHeight: 1.2 }}>{e.n}</div>
         <div style={{ fontSize: 10.5, color: 'var(--ink-3)', fontFamily: 'var(--mono)', marginTop: 2, fontWeight: 700 }}>{e.note}</div>
+      </div>
+      {clickable && (
+        <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--sky-600)', flexShrink: 0, background: 'var(--sky-50)', padding: '3px 8px', borderRadius: 6, border: '1px solid var(--sky-200)' }}>
+          Agendar →
+        </span>
+      )}
+    </div>
+  );
+}
+
+/* ════════════════════════════════ WIZARD AGENDAMENTO PÚBLICO ════ */
+
+function AgendarEspModal({ esp, onClose }: { esp: EspItem; onClose: () => void }) {
+  type Step = 'dados' | 'confirmar' | 'sucesso';
+  const [step, setStep]       = useState<Step>('dados');
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState('');
+  const [waLink, setWaLink]   = useState('');
+
+  const [form, setForm] = useState({ name: '', cpf: '', phone: '', email: '', birthDate: '', gender: '' });
+
+  const fmtCpfInput = (v: string) => {
+    const d = v.replace(/\D/g, '').slice(0, 11);
+    return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+            .replace(/(\d{3})(\d{3})(\d{0,3})/, '$1.$2.$3')
+            .replace(/(\d{3})(\d{0,3})/, '$1.$2');
+  };
+  const fmtPhoneInput = (v: string) => {
+    const d = v.replace(/\D/g, '').slice(0, 11);
+    return d.length === 11 ? d.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3')
+      : d.length >= 7 ? d.replace(/(\d{2})(\d{4,5})(\d{0,4})/, '($1) $2-$3')
+      : d.length >= 3 ? d.replace(/(\d{2})(\d+)/, '($1) $2') : d;
+  };
+  const API_PUB = 'https://saudeagora24h.com.br/api-backend';
+
+  const goConfirm = () => {
+    const { name, cpf, phone } = form;
+    if (!name.trim()) { setError('Informe seu nome completo.'); return; }
+    if (cpf.replace(/\D/g, '').length < 11) { setError('CPF inválido.'); return; }
+    if (phone.replace(/\D/g, '').length < 10) { setError('WhatsApp inválido.'); return; }
+    setError(''); setStep('confirmar');
+  };
+
+  const confirm = async () => {
+    setError(''); setLoading(true);
+    try {
+      const r = await axios.post(`${API_PUB}/api/public/book-specialty`, {
+        name: form.name.trim(),
+        cpf: form.cpf.replace(/\D/g, ''),
+        phone: form.phone.replace(/\D/g, ''),
+        email: form.email.trim() || undefined,
+        birthDate: form.birthDate || undefined,
+        gender: form.gender || undefined,
+        specialtyName: esp.n,
+        specialtyPrice: esp.price ?? 0,
+      });
+      setWaLink(r.data.whatsappLink ?? '');
+      setStep('sucesso');
+    } catch (e: any) { setError(e.response?.data?.error ?? 'Erro ao processar. Tente novamente.'); }
+    finally { setLoading(false); }
+  };
+
+  const priceStr = esp.price ? `R$ ${esp.price.toFixed(2).replace('.', ',')}` : 'Sob consulta';
+
+  const inpStyle: React.CSSProperties = { padding: '11px 12px', borderRadius: 10, border: '1.5px solid #e2e8f0', fontSize: 14, fontFamily: 'inherit', width: '100%', boxSizing: 'border-box', outline: 'none' };
+  const lbl: React.CSSProperties = { fontSize: 10.5, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 5, display: 'block' };
+  const ErrBox = ({ msg }: { msg: string }) => <div style={{ padding: '10px 12px', borderRadius: 10, background: '#fef2f2', border: '1px solid #fecaca', fontSize: 13, color: '#dc2626', fontWeight: 700, marginBottom: 12 }}>⚠️ {msg}</div>;
+  const PrimaryBtn = ({ label, onClick, disabled }: { label: string; onClick: () => void; disabled?: boolean }) => (
+    <button onClick={onClick} disabled={disabled} style={{ width: '100%', padding: 14, borderRadius: 12, border: 0, background: disabled ? '#94a3b8' : 'linear-gradient(135deg,#0ea5e9,#0284c7)', color: '#fff', fontSize: 15, fontWeight: 900, cursor: disabled ? 'default' : 'pointer', fontFamily: 'inherit', boxShadow: disabled ? 'none' : '0 4px 14px rgba(14,165,233,.35)' }}>
+      {label}
+    </button>
+  );
+
+  const EspHeader = () => (
+    <div style={{ background: 'linear-gradient(135deg,#e0f2fe,#f0f9ff)', borderRadius: 14, padding: '14px 16px', marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div>
+        <div style={{ fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#0ea5e9', marginBottom: 2 }}>Consulta avulsa</div>
+        <div style={{ fontSize: 18, fontWeight: 900, color: '#0f172a' }}>{esp.n}</div>
+        <div style={{ fontSize: 12, color: '#64748b', fontWeight: 700, marginTop: 2 }}>Atendimento por telemedicina · 100% online</div>
+      </div>
+      <div style={{ textAlign: 'right' }}>
+        <div style={{ fontSize: 22, fontWeight: 900, color: '#0284c7' }}>{priceStr}</div>
+        <div style={{ fontSize: 10.5, color: '#64748b', fontWeight: 700 }}>por consulta</div>
+      </div>
+    </div>
+  );
+
+  const renderContent = () => {
+    if (step === 'dados') return (
+      <div>
+        <EspHeader />
+        <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a', marginBottom: 4 }}>Seus dados</div>
+        <div style={{ fontSize: 13, color: '#64748b', fontWeight: 600, marginBottom: 16 }}>
+          Nossa equipe confirma o agendamento pelo WhatsApp em até 2h.
+        </div>
+        {error && <ErrBox msg={error} />}
+        <div style={{ display: 'grid', gap: 12 }}>
+          <div>
+            <label style={lbl}>Nome completo *</label>
+            <input style={inpStyle} type="text" value={form.name}
+              onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Seu nome completo" />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div>
+              <label style={lbl}>CPF *</label>
+              <input style={inpStyle} type="text" value={form.cpf} inputMode="numeric"
+                onChange={e => setForm(f => ({ ...f, cpf: fmtCpfInput(e.target.value) }))} placeholder="000.000.000-00" />
+            </div>
+            <div>
+              <label style={lbl}>WhatsApp *</label>
+              <input style={inpStyle} type="tel" value={form.phone}
+                onChange={e => setForm(f => ({ ...f, phone: fmtPhoneInput(e.target.value) }))} placeholder="(87) 9 0000-0000" />
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div>
+              <label style={lbl}>Nascimento</label>
+              <input style={inpStyle} type="date" value={form.birthDate}
+                onChange={e => setForm(f => ({ ...f, birthDate: e.target.value }))} max={new Date().toISOString().split('T')[0]} />
+            </div>
+            <div>
+              <label style={lbl}>Sexo biológico</label>
+              <select style={inpStyle} value={form.gender} onChange={e => setForm(f => ({ ...f, gender: e.target.value }))}>
+                <option value="">Selecione…</option>
+                <option value="male">Masculino</option>
+                <option value="female">Feminino</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label style={lbl}>E-mail</label>
+            <input style={inpStyle} type="email" value={form.email}
+              onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="seu@email.com (opcional)" />
+          </div>
+          <PrimaryBtn label="Revisar pedido →" onClick={goConfirm} />
+        </div>
+      </div>
+    );
+
+    if (step === 'confirmar') return (
+      <div>
+        <button onClick={() => { setStep('dados'); setError(''); }}
+          style={{ background: 'none', border: 0, cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#0ea5e9', padding: '0 0 14px', fontFamily: 'inherit' }}>
+          ← Voltar
+        </button>
+        <EspHeader />
+        <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a', marginBottom: 12 }}>Confirmar pedido</div>
+        {error && <ErrBox msg={error} />}
+        <div style={{ background: '#f8fafc', borderRadius: 14, border: '1px solid #e2e8f0', overflow: 'hidden', marginBottom: 16 }}>
+          {[
+            { l: 'Paciente', v: form.name },
+            { l: 'CPF', v: form.cpf },
+            { l: 'WhatsApp', v: form.phone },
+            { l: 'Especialidade', v: esp.n },
+            { l: 'Valor', v: priceStr },
+          ].map((row, i, arr) => (
+            <div key={row.l} style={{ padding: '11px 16px', display: 'flex', justifyContent: 'space-between', borderBottom: i < arr.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+              <span style={{ fontSize: 13, color: '#64748b', fontWeight: 700 }}>{row.l}</span>
+              <span style={{ fontSize: 13, fontWeight: 900, color: '#0f172a', textAlign: 'right', maxWidth: '60%' }}>{row.v}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ padding: '11px 14px', borderRadius: 10, background: '#f0fdf4', border: '1px solid #bbf7d0', fontSize: 12.5, color: '#166534', fontWeight: 700, marginBottom: 16, lineHeight: 1.6 }}>
+          ✅ Nossa equipe confirma o horário e envia o link de pagamento pelo WhatsApp em até 2h úteis.
+        </div>
+        <PrimaryBtn label={loading ? 'Enviando…' : 'Solicitar consulta'} onClick={confirm} disabled={loading} />
+      </div>
+    );
+
+    if (step === 'sucesso') return (
+      <div style={{ textAlign: 'center', padding: '8px 0' }}>
+        <div style={{ fontSize: 52, marginBottom: 12 }}>✅</div>
+        <div style={{ fontSize: 22, fontWeight: 900, color: '#0f172a', marginBottom: 8 }}>Pedido recebido!</div>
+        <div style={{ fontSize: 14, color: '#64748b', fontWeight: 600, marginBottom: 6 }}>
+          Nossa equipe vai entrar em contato pelo WhatsApp<br />
+          <strong style={{ color: '#0f172a' }}>em até 2h úteis</strong> para confirmar o horário.
+        </div>
+        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 14, padding: '14px 16px', margin: '20px 0', textAlign: 'left' }}>
+          <div style={{ fontSize: 12, fontWeight: 900, color: '#166534', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Resumo do pedido</div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>{esp.n}</div>
+          <div style={{ fontSize: 13, color: '#64748b', fontWeight: 700 }}>{priceStr} · pagamento confirmado no WhatsApp</div>
+        </div>
+        {waLink && (
+          <a href={waLink} target="_blank" rel="noreferrer"
+            style={{ display: 'block', padding: '14px 16px', borderRadius: 12, background: 'linear-gradient(135deg,#075E54,#25D366)', color: '#fff', fontWeight: 900, fontSize: 15, textDecoration: 'none', boxShadow: '0 4px 14px rgba(37,211,102,.35)', marginBottom: 12 }}>
+            💬 Abrir WhatsApp agora
+          </a>
+        )}
+        <button onClick={onClose} style={{ background: 'none', border: 0, cursor: 'pointer', fontSize: 13, color: '#94a3b8', fontWeight: 700, fontFamily: 'inherit' }}>
+          Fechar
+        </button>
+      </div>
+    );
+
+    return null;
+  };
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 999, padding: 12 }}>
+      <div onClick={ev => ev.stopPropagation()} style={{ background: '#fff', borderRadius: 20, width: '100%', maxWidth: 500, maxHeight: '90vh', overflowY: 'auto', padding: '24px 20px 32px', boxShadow: '0 -8px 40px rgba(0,0,0,0.2)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#64748b' }}>
+            {step === 'sucesso' ? 'Pedido confirmado' : 'Consulta avulsa · agendamento'}
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 0, cursor: 'pointer', fontSize: 22, color: '#94a3b8', lineHeight: 1, padding: 4 }}>×</button>
+        </div>
+        {renderContent()}
       </div>
     </div>
   );
@@ -195,86 +458,251 @@ function MidCta({ variant, desktop, onCta }: { variant: CtaVariant; desktop: boo
   );
 }
 
-/* ── Modal ── */
-interface ModalProps { onClose: () => void; selectedPlan: string; onPlanChange: (id: string) => void; remaining: number }
+/* ── Checkout Modal ── */
+interface ModalProps { onClose: () => void; selectedPlan: string; onPlanChange: (id: string) => void; plans: PlanData[] }
 
-function Modal({ onClose, selectedPlan, onPlanChange, remaining }: ModalProps) {
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [error, setError] = useState('');
-  const [formData, setFormData] = useState({ name: '', phone: '' });
-  const [consent, setConsent] = useState(false);
+function fmtCpf(v: string) {
+  const d = v.replace(/\D/g, '').slice(0, 11);
+  if (d.length <= 3) return d;
+  if (d.length <= 6) return `${d.slice(0,3)}.${d.slice(3)}`;
+  if (d.length <= 9) return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6)}`;
+  return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6,9)}-${d.slice(9)}`;
+}
+
+function fmtPhone(v: string) {
+  const d = v.replace(/\D/g, '').slice(0, 11);
+  if (d.length <= 2) return `(${d}`;
+  if (d.length <= 6) return `(${d.slice(0,2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`;
+  return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;
+}
+
+function CField({ label, hint, ...props }: { label: string; hint?: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <div>
+      <label style={{ display: 'block', fontSize: 10.5, fontWeight: 900, marginBottom: 5, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</label>
+      <input className="pub-input" style={{ width: '100%' }} {...props} />
+      {hint && <div style={{ fontSize: 11, color: 'var(--ink-3)', fontWeight: 600, marginTop: 3 }}>{hint}</div>}
+    </div>
+  );
+}
+
+function Modal({ onClose, selectedPlan, onPlanChange, plans }: ModalProps) {
+  const [step,      setStep]      = useState<'form' | 'success'>('form');
+  const [loading,   setLoading]   = useState(false);
+  const [error,     setError]     = useState('');
+  const [link,      setLink]      = useState('');
+  const [countdown, setCountdown] = useState(0);
+  const [consent,   setConsent]   = useState(false);
+  const [form, setForm] = useState({ name: '', cpf: '', email: '', phone: '', password: '', birthDate: '', gender: '' });
+
+  const activePlan = plans.find(p => p.id === selectedPlan) ?? plans[0];
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm(f => ({ ...f, [k]: e.target.value }));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!consent) { setError('Você precisa aceitar a Política de Privacidade para continuar.'); return; }
+    if (!consent) { setError('Aceite os Termos e Condições para continuar.'); return; }
+    const cpfClean = form.cpf.replace(/\D/g, '');
+    if (cpfClean.length !== 11) { setError('CPF inválido — informe os 11 dígitos.'); return; }
+    if (!form.birthDate) { setError('Informe a data de nascimento.'); return; }
+    if (!form.gender) { setError('Informe o sexo biológico.'); return; }
+    if (form.password.length < 6) { setError('Senha muito curta (mínimo 6 caracteres).'); return; }
     setLoading(true); setError('');
     try {
-      await axios.post(`${API}/api/pre-cadastro`, { ...formData, plan: selectedPlan });
-      setSuccess(true);
-    } catch (err: unknown) {
-      const ax = err as { response?: { data?: { error?: string } } };
-      setError(ax.response?.data?.error || 'Deu um problema. Tenta de novo!');
+      // Se selectedPlan parece um UUID, envia como planId; senão, como planType
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedPlan);
+      const r = await axios.post(`${API}/api/checkout`, {
+        name: form.name.trim(),
+        email: form.email.trim().toLowerCase(),
+        cpf: cpfClean,
+        phone: form.phone.replace(/\D/g, ''),
+        password: form.password,
+        birthDate: form.birthDate,
+        gender: form.gender,
+        ...(isUUID ? { planId: selectedPlan } : { planType: selectedPlan }),
+      });
+      // invoiceUrl = link de pagamento Asaas; link = magic link de acesso
+      const invoice = r.data.invoiceUrl ?? '';
+      setLink(invoice);
+      setStep('success');
+      // Se tiver link de pagamento, inicia contagem regressiva e redireciona
+      if (invoice) {
+        setCountdown(5);
+        const tick = setInterval(() => {
+          setCountdown(prev => {
+            if (prev <= 1) { clearInterval(tick); window.location.href = invoice; return 0; }
+            return prev - 1;
+          });
+        }, 1000);
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Erro ao criar conta. Tente novamente.');
     } finally { setLoading(false); }
   };
 
   return (
-    <div onClick={(e) => e.target === e.currentTarget && onClose()}
-      style={{ position: 'fixed', inset: 0, background: 'rgba(12,74,110,0.6)', zIndex: 50, display: 'grid', placeItems: 'center', padding: 20, backdropFilter: 'blur(4px)' }}>
-      <div style={{ background: '#fff', borderRadius: 18, padding: 22, maxWidth: 380, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)', maxHeight: '90vh', overflowY: 'auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <img src="/logo.png" alt="Saúde Agora 24h" style={{ height: 32 }} />
-          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--slate-100)', display: 'grid', placeItems: 'center', color: 'var(--ink-2)', fontSize: 20, lineHeight: 1, border: 0, cursor: 'pointer' }}>×</button>
+    <div onClick={e => e.target === e.currentTarget && onClose()}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(12,74,110,0.65)', zIndex: 50, display: 'grid', placeItems: 'center', padding: '20px 16px', backdropFilter: 'blur(4px)' }}>
+      <div style={{ background: '#fff', borderRadius: 20, maxWidth: 420, width: '100%', boxShadow: '0 24px 64px rgba(0,0,0,0.28)', maxHeight: '93vh', overflowY: 'auto' }}>
+
+        {/* Header */}
+        <div style={{ padding: '16px 20px 14px', borderBottom: '1px solid var(--slate-100)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: '#fff', zIndex: 1, borderRadius: '20px 20px 0 0' }}>
+          <img src="/logo.png" alt="Saúde Agora 24h" style={{ height: 28 }} />
+          <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--slate-100)', display: 'grid', placeItems: 'center', color: 'var(--ink-2)', fontSize: 18, border: 0, cursor: 'pointer' }}>×</button>
         </div>
 
-        {success ? (
-          <div style={{ textAlign: 'center', padding: '24px 0' }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>🎉</div>
-            <h2 style={{ fontSize: 22, fontWeight: 900, marginBottom: 10 }}>Você está na lista!</h2>
-            <p style={{ fontSize: 15, color: 'var(--ink-2)', lineHeight: 1.55 }}>Assim que a plataforma for lançada, você recebe uma mensagem no WhatsApp. 👊</p>
-            <button onClick={onClose} className="pub-btn pub-btn-primary pub-btn-block" style={{ marginTop: 22 }}>Fechar</button>
+        {/* Success */}
+        {step === 'success' ? (
+          <div style={{ padding: '36px 28px', textAlign: 'center' }}>
+            {/* Ícone animado */}
+            <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'linear-gradient(135deg,#f0fdf4,#dcfce7)', border: '2px solid #86efac', display: 'grid', placeItems: 'center', fontSize: 40, margin: '0 auto 20px', boxShadow: '0 8px 24px rgba(34,197,94,.2)' }}>✅</div>
+
+            <h2 style={{ fontSize: 24, fontWeight: 900, color: '#0f172a', marginBottom: 6 }}>Cadastro criado!</h2>
+            <p style={{ fontSize: 14, color: '#64748b', marginBottom: 24, lineHeight: 1.6 }}>
+              Plano <strong style={{ color: '#0f172a' }}>{activePlan?.name}</strong> registrado com sucesso.
+            </p>
+
+            {link ? (
+              <>
+                {/* Resumo do plano */}
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 14, padding: '16px 20px', marginBottom: 20, textAlign: 'left' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <span style={{ fontSize: 12, fontWeight: 900, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Valor</span>
+                    <span style={{ fontSize: 18, fontWeight: 900, color: '#0284c7' }}>
+                      {activePlan?.price ? `R$ ${activePlan.price}` : '—'}<span style={{ fontSize: 12, fontWeight: 600, color: '#94a3b8' }}>/mês</span>
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {['💳 Cartão', '🏦 PIX', '📄 Boleto'].map(m => (
+                      <span key={m} style={{ fontSize: 12, fontWeight: 700, color: '#475569', background: '#e2e8f0', borderRadius: 6, padding: '3px 8px' }}>{m}</span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Countdown + botão */}
+                <a href={link} target="_blank" rel="noreferrer"
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '16px 20px', borderRadius: 14, background: 'linear-gradient(135deg,#0ea5e9,#0284c7)', color: '#fff', fontWeight: 900, fontSize: 16, textDecoration: 'none', boxShadow: '0 6px 20px rgba(14,165,233,.4)', marginBottom: 12 }}>
+                  💳 Finalizar pagamento
+                  {countdown > 0 && (
+                    <span style={{ marginLeft: 4, background: 'rgba(255,255,255,.25)', borderRadius: 20, padding: '2px 10px', fontSize: 13, fontWeight: 700 }}>{countdown}s</span>
+                  )}
+                </a>
+
+                {countdown > 0 && (
+                  <p style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, marginBottom: 8 }}>
+                    Redirecionando automaticamente em {countdown}s…
+                  </p>
+                )}
+
+                <p style={{ fontSize: 11.5, color: '#64748b', marginBottom: 20, lineHeight: 1.7 }}>
+                  🔒 Pagamento seguro via Asaas · Plano ativado automaticamente após confirmação.
+                </p>
+              </>
+            ) : (
+              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 14, padding: '16px 20px', marginBottom: 20, textAlign: 'left' }}>
+                <p style={{ fontSize: 14, color: '#166534', fontWeight: 700, margin: 0, lineHeight: 1.6 }}>
+                  ✅ Cadastro registrado!<br />
+                  <span style={{ fontWeight: 500, color: '#15803d' }}>Nossa equipe entrará em contato pelo WhatsApp em instantes para ativar seu plano.</span>
+                </p>
+              </div>
+            )}
+
+            <button onClick={onClose} style={{ background: 'none', border: 0, cursor: 'pointer', fontSize: 13, color: '#94a3b8', fontWeight: 700, fontFamily: 'inherit', textDecoration: 'underline' }}>
+              Fechar
+            </button>
           </div>
         ) : (
-          <>
-            <span className="pub-pill live" style={{ marginBottom: 10 }}>{remaining} vagas restantes</span>
-            <h2 style={{ fontSize: 22, fontWeight: 900, lineHeight: 1.15, marginBottom: 6 }}>Garanta seu preço de lançamento</h2>
-            <p style={{ fontSize: 13.5, color: 'var(--ink-2)', marginBottom: 18 }}>Te chamamos no WhatsApp assim que abrir. Sem cartão agora.</p>
-            <div style={{ display: 'grid', gap: 8, marginBottom: 18 }}>
-              {PLANS.map(p => (
-                <button key={p.id} onClick={() => onPlanChange(p.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', border: `1.5px solid ${selectedPlan === p.id ? 'var(--green-500)' : 'var(--slate-200)'}`, borderRadius: 12, background: selectedPlan === p.id ? 'var(--green-50)' : '#fff', textAlign: 'left', cursor: 'pointer', width: '100%' }}>
-                  <span style={{ width: 18, height: 18, borderRadius: '50%', border: `2px solid ${selectedPlan === p.id ? 'var(--green-500)' : 'var(--slate-300)'}`, background: selectedPlan === p.id ? 'var(--green-500)' : '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-                    {selectedPlan === p.id && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} />}
-                  </span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 800, fontSize: 14 }}>
-                      {p.name}
-                      {p.tag && <span style={{ marginLeft: 6, background: 'var(--green-500)', color: '#fff', fontSize: 9, padding: '2px 6px', borderRadius: 4, fontWeight: 900, verticalAlign: 'middle' }}>{p.tag.toUpperCase()}</span>}
+          <div style={{ padding: '16px 20px 22px' }}>
+
+            {/* Plano selector */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 10.5, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--ink-3)', marginBottom: 8 }}>Escolha seu plano</div>
+              <div style={{ display: 'grid', gap: 7 }}>
+                {plans.map((p: PlanData) => (
+                  <button key={p.id} onClick={() => onPlanChange(p.id)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 13px', border: `${selectedPlan === p.id ? '2px solid var(--green-500)' : '1.5px solid var(--slate-200)'}`, borderRadius: 11, background: selectedPlan === p.id ? 'var(--green-50)' : '#fff', textAlign: 'left', cursor: 'pointer', width: '100%' }}>
+                    <span style={{ width: 17, height: 17, borderRadius: '50%', border: `2px solid ${selectedPlan === p.id ? 'var(--green-500)' : 'var(--slate-300)'}`, background: selectedPlan === p.id ? 'var(--green-500)' : '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                      {selectedPlan === p.id && <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#fff' }} />}
+                    </span>
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontWeight: 900, fontSize: 13.5 }}>
+                        {p.name}
+                        {p.tag && <span style={{ marginLeft: 6, background: 'var(--green-500)', color: '#fff', fontSize: 9, padding: '2px 6px', borderRadius: 4, fontWeight: 900, verticalAlign: 'middle' }}>{p.tag.toUpperCase()}</span>}
+                      </span>
+                      <span style={{ fontSize: 12.5, fontWeight: 900, color: selectedPlan === p.id ? 'var(--green-700)' : 'var(--ink-2)' }}>R$ {p.price}<span style={{ fontWeight: 600, fontSize: 11 }}>{p.period}</span></span>
                     </div>
-                    <div style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 700 }}>R$ {p.price}{p.period}</div>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                ))}
+              </div>
             </div>
-            {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#b91c1c', marginBottom: 14 }}>{error}</div>}
-            <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 12 }}>
-              <label>
-                <span style={{ display: 'block', fontSize: 12, fontWeight: 800, marginBottom: 6, color: 'var(--ink-2)' }}>Seu nome</span>
-                <input className="pub-input" placeholder="Como te chamamos?" required value={formData.name} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, name: e.target.value })} />
+
+            <div style={{ height: 1, background: 'var(--slate-100)', margin: '2px 0 16px' }} />
+
+            {/* Dados */}
+            <div style={{ fontSize: 10.5, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--ink-3)', marginBottom: 12 }}>Seus dados</div>
+            <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 11 }}>
+              <CField label="Nome completo" type="text" required autoComplete="name"
+                value={form.name} onChange={set('name')} placeholder="Seu nome completo" />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 11 }}>
+                <CField label="CPF" type="text" required inputMode="numeric"
+                  value={form.cpf} onChange={e => setForm(f => ({ ...f, cpf: fmtCpf(e.target.value) }))}
+                  placeholder="000.000.000-00" maxLength={14} />
+                <CField label="WhatsApp" type="tel" required
+                  value={form.phone} onChange={e => setForm(f => ({ ...f, phone: fmtPhone(e.target.value) }))}
+                  placeholder="(00) 9 0000-0000" />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 11 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 10.5, fontWeight: 900, marginBottom: 5, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                    Data de nascimento
+                  </label>
+                  <input className="pub-input" type="date" required style={{ width: '100%' }}
+                    value={form.birthDate} onChange={set('birthDate')} max={new Date().toISOString().split('T')[0]} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 10.5, fontWeight: 900, marginBottom: 5, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                    Sexo biológico
+                  </label>
+                  <select className="pub-input" required style={{ width: '100%' }}
+                    value={form.gender} onChange={e => setForm(f => ({ ...f, gender: e.target.value }))}>
+                    <option value="">Selecione…</option>
+                    <option value="male">Masculino</option>
+                    <option value="female">Feminino</option>
+                  </select>
+                </div>
+              </div>
+              <CField label="E-mail" type="email" required autoComplete="email"
+                value={form.email} onChange={set('email')} placeholder="seu@email.com" />
+              <CField label="Senha de acesso" type="password" required autoComplete="new-password"
+                value={form.password} onChange={set('password')}
+                placeholder="Mínimo 6 caracteres"
+                hint="Você usará para acessar o painel" />
+
+              {error && (
+                <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '9px 13px', fontSize: 13, color: '#b91c1c', fontWeight: 600 }}>{error}</div>
+              )}
+
+              <label style={{ display: 'flex', gap: 9, alignItems: 'flex-start', fontSize: 12, color: 'var(--ink-2)', fontWeight: 600, cursor: 'pointer', lineHeight: 1.5 }}>
+                <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} style={{ marginTop: 2, flexShrink: 0, width: 14, height: 14 }} />
+                <span>
+                  Li e concordo com os{' '}
+                  <a href="/termos" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--sky-700)', fontWeight: 800 }}>Termos e Condições</a>
+                  {' '}e a{' '}
+                  <a href="/privacidade" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--sky-700)', fontWeight: 800 }}>Política de Privacidade</a>
+                </span>
               </label>
-              <label>
-                <span style={{ display: 'block', fontSize: 12, fontWeight: 800, marginBottom: 6, color: 'var(--ink-2)' }}>WhatsApp</span>
-                <input className="pub-input" placeholder="(00) 0 0000-0000" inputMode="tel" required value={formData.phone} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, phone: e.target.value })} />
-              </label>
-              <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 12, color: 'var(--ink-2)', fontWeight: 600, cursor: 'pointer' }}>
-                <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} style={{ marginTop: 2, flexShrink: 0 }} />
-                <span>Li e concordo com a <a href="/privacidade" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--sky-700)', fontWeight: 800 }}>Política de Privacidade</a> e os <a href="/termos" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--sky-700)', fontWeight: 800 }}>Termos de Serviço</a></span>
-              </label>
-              <button type="submit" className="pub-btn pub-btn-primary pub-btn-block" disabled={loading || !consent} style={{ marginTop: 4 }}>
-                {loading ? '⏳ Salvando...' : '✅ Quero Garantir Minha Vaga'}
+
+              <button type="submit" disabled={loading || !consent} className="pub-btn pub-btn-primary pub-btn-block"
+                style={{ marginTop: 2, opacity: loading || !consent ? 0.72 : 1, fontSize: 15, padding: '14px 20px' }}>
+                {loading ? '⏳ Criando sua conta...' : `Garantir meu plano ${activePlan?.name ?? ''} →`}
               </button>
-              <p style={{ fontSize: 11, color: 'var(--ink-3)', textAlign: 'center', fontWeight: 700 }}>Gratuito agora. Você paga apenas quando a plataforma for lançada.</p>
+
+              <p style={{ fontSize: 11, color: 'var(--ink-3)', textAlign: 'center', fontWeight: 600, lineHeight: 1.55, margin: 0 }}>
+                🔒 Dados criptografados · Nossa equipe confirma o pagamento pelo WhatsApp
+              </p>
             </form>
-          </>
+          </div>
         )}
       </div>
     </div>
@@ -291,9 +719,20 @@ export default function App() {
   const [selectedPlan, setSelectedPlan] = useState('FAMILIAR');
   const [faqOpen, setFaqOpen] = useState(-1);
   const [espFilter, setEspFilter] = useState<EspFilter>('todas');
-  const [loginPhone, setLoginPhone] = useState('');
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState('');
+  const [apiPlans, setApiPlans] = useState<PlanData[] | null>(null);
+  const [medEsp, setMedEsp] = useState<MedEsp[]>([]);
+  const [agendarEsp, setAgendarEsp] = useState<EspItem | null>(null);
+  const [selectedPacote, setSelectedPacote] = useState<SelectedPacote | null>(null);
+
+  // Lista final de especialidades (24h fixas + Meditele ou fallback)
+  const allEsp: EspItem[] = [
+    ...ESP_24H,
+    ...(medEsp.length > 0 ? medEsp.map(medToEsp) : ESP_FALLBACK),
+  ];
 
   useEffect(() => {
     const onResize = () => setDesktop(window.innerWidth >= 1024);
@@ -302,39 +741,110 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    axios.get<MedEsp[]>(`${API}/api/public/specialties`)
+      .then(r => setMedEsp(r.data))
+      .catch(() => {}); // silencioso — usa fallback
+  }, []);
+
+  useEffect(() => {
     axios.get(`${API}/api/leads/count`).catch(() => {});
   }, []);
 
   useEffect(() => {
-    const p = new URLSearchParams(window.location.search).get('plano')?.toUpperCase();
-    if (p && ['INDIVIDUAL', 'FAMILIAR', 'AVULSO'].includes(p)) { setSelectedPlan(p); setShowModal(true); }
+    axios.get<ApiLpPlan[]>(`${API}/api/plans`)
+      .then(r => {
+        if (r.data.length > 0) {
+          setApiPlans(r.data.map(p => ({
+            id: p.id,           // UUID real do banco
+            planType: p.type,   // INDIVIDUAL / FAMILIAR / AVULSO
+            name: p.name,
+            price: p.price.toFixed(2).replace('.', ','),
+            strike: p.originalPrice != null ? p.originalPrice.toFixed(2).replace('.', ',') : '',
+            period: p.periodLabel ?? '/mês',
+            desc: p.description ?? '',
+            perks: p.features ?? [],
+            cta: p.ctaLabel ?? `Quero o ${p.name}`,
+            highlight: p.featured,
+            tag: p.featured ? 'Mais escolhido' : null,
+          })));
+        }
+      })
+      .catch(() => {});
   }, []);
 
-  const openModal = (planId: string) => { setSelectedPlan(planId); setShowModal(true); };
+  // URL direta por planId (UUID) ou por tipo legado (?plano=INDIVIDUAL)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const planId  = params.get('planId');   // UUID — link direto por plano
+    const planoTipo = params.get('plano')?.toUpperCase(); // legado — tipo
+
+    if (planId) {
+      // Busca o plano pelo UUID (pode ser um plano oculto da LP)
+      axios.get<ApiLpPlan>(`${API}/api/plans/${planId}`)
+        .then(r => {
+          const extra: PlanData = {
+            id: r.data.id,
+            planType: r.data.type,
+            name: r.data.name,
+            price: r.data.price.toFixed(2).replace('.', ','),
+            strike: r.data.originalPrice != null ? r.data.originalPrice.toFixed(2).replace('.', ',') : '',
+            period: r.data.periodLabel ?? '/mês',
+            desc: r.data.description ?? '',
+            perks: r.data.features ?? [],
+            cta: r.data.ctaLabel ?? `Quero o ${r.data.name}`,
+            highlight: r.data.featured,
+            tag: r.data.featured ? 'Mais escolhido' : null,
+          };
+          setApiPlans(prev => {
+            const withoutDup = (prev ?? []).filter(p => p.id !== extra.id);
+            return [extra, ...withoutDup];
+          });
+          setSelectedPlan(r.data.id);
+          setShowModal(true);
+        })
+        .catch(() => {});
+    } else if (planoTipo && ['INDIVIDUAL', 'FAMILIAR', 'AVULSO'].includes(planoTipo)) {
+      setSelectedPlan(planoTipo);
+      setShowModal(true);
+    }
+  }, []);
+
+  // Se chamado com tipo legado (FAMILIAR etc.) e os planos da API já carregaram, usa o UUID real
+  const openModal = (planIdOrType: string) => {
+    const isType = ['INDIVIDUAL', 'FAMILIAR', 'AVULSO', 'CORTESIA'].includes(planIdOrType.toUpperCase());
+    if (isType && apiPlans && apiPlans.length > 0) {
+      const match = apiPlans.find(p => (p.planType ?? '').toUpperCase() === planIdOrType.toUpperCase());
+      setSelectedPlan(match ? match.id : planIdOrType);
+    } else {
+      setSelectedPlan(planIdOrType);
+    }
+    setShowModal(true);
+  };
 
   const handleLogin = async () => {
-    const clean = loginPhone.replace(/\D/g, '');
-    if (clean.length < 8) { setLoginError('Digite um telefone válido.'); return; }
+    if (!loginEmail.trim()) { setLoginError('Informe o e-mail.'); return; }
+    if (!loginPassword) { setLoginError('Informe a senha.'); return; }
     setLoginLoading(true);
     setLoginError('');
     try {
-      const r = await axios.post(`${API}/api/auth/login`, { phone: clean });
-      window.location.href = r.data.magicLink;
+      const r = await axios.post(`${API}/api/customer/auth/login`, { login: loginEmail.trim().toLowerCase(), password: loginPassword });
+      localStorage.setItem('cli_token', r.data.token);
+      window.location.href = '/cliente';
     } catch (e: any) {
-      setLoginError(e.response?.data?.error || 'Erro ao entrar. Tente novamente.');
+      setLoginError(e.response?.data?.error || 'E-mail ou senha incorretos.');
     } finally {
       setLoginLoading(false);
     }
   };
 
   const espTabs: { id: EspFilter; l: string; c: number }[] = [
-    { id: 'todas', l: 'Todas', c: ESPECIALIDADES.length },
-    { id: '24h', l: 'Sem agendar (24h)', c: ESPECIALIDADES.filter(e => e.cat === '24h').length },
-    { id: 'adulto', l: 'Adultos', c: ESPECIALIDADES.filter(e => e.cat === 'adulto').length },
-    { id: 'infantil', l: 'Infantil', c: ESPECIALIDADES.filter(e => e.cat === 'infantil').length },
-    { id: 'mental', l: 'Saúde mental', c: ESPECIALIDADES.filter(e => e.cat === 'mental').length },
+    { id: 'todas',    l: 'Todas',            c: allEsp.length },
+    { id: '24h',      l: 'Sem agendar (24h)', c: allEsp.filter(e => e.cat === '24h').length },
+    { id: 'adulto',   l: 'Adultos',           c: allEsp.filter(e => e.cat === 'adulto').length },
+    { id: 'infantil', l: 'Infantil',          c: allEsp.filter(e => e.cat === 'infantil').length },
+    { id: 'mental',   l: 'Saúde mental',      c: allEsp.filter(e => e.cat === 'mental').length },
   ];
-  const visibleEsp = espFilter === 'todas' ? ESPECIALIDADES : ESPECIALIDADES.filter(e => e.cat === espFilter);
+  const visibleEsp = espFilter === 'todas' ? allEsp : allEsp.filter(e => e.cat === espFilter);
 
   return (
     <div className="pub" style={{ fontFamily: 'Nunito, system-ui, sans-serif', color: 'var(--ink)', background: '#fff', lineHeight: 1.5, fontSize: 16 }}>
@@ -345,32 +855,39 @@ export default function App() {
           <img src="/logo.png" alt="Saúde Agora 24h" style={{ height: desktop ? 38 : 34, flexShrink: 0 }} />
 
           {desktop && (
-            <nav style={{ display: 'flex', gap: 28, fontSize: 14, fontWeight: 700, color: 'var(--ink-2)' }}>
+            <nav style={{ display: 'flex', gap: 20, fontSize: 14, fontWeight: 700, color: 'var(--ink-2)', flexShrink: 1, overflow: 'hidden' }}>
               {['Como funciona', 'Médicos', 'Especialidades', 'Planos', 'Perguntas'].map(l => (
-                <a key={l} href={`#${l.toLowerCase().replace(' ', '-')}`} style={{ cursor: 'pointer', textDecoration: 'none', color: 'var(--ink-2)' }}>{l}</a>
+                <a key={l} href={`#${l.toLowerCase().replace(' ', '-')}`} style={{ cursor: 'pointer', textDecoration: 'none', color: 'var(--ink-2)', whiteSpace: 'nowrap' }}>{l}</a>
               ))}
             </nav>
           )}
 
           {desktop ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-3)' }}>Já é assinante?</span>
-                <div style={{ display: 'flex', alignItems: 'center', border: `1.5px solid ${loginError ? '#ef4444' : 'var(--slate-200)'}`, borderRadius: 999, background: '#fff', padding: 3 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 10px 0 12px' }}>
-                    <WaIcon size={14} />
-                    <input
-                      value={loginPhone}
-                      onChange={e => { setLoginPhone(e.target.value); setLoginError(''); }}
-                      onKeyDown={e => e.key === 'Enter' && handleLogin()}
-                      style={{ border: 0, outline: 0, background: 'transparent', fontSize: 13, fontWeight: 700, width: 130, color: 'var(--ink)', fontFamily: 'inherit' }}
-                      placeholder="(00) 9 9999-9999"
-                    />
-                  </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', border: `1.5px solid ${loginError ? '#ef4444' : 'var(--slate-200)'}`, borderRadius: 12, background: '#fff', padding: '3px 3px 3px 10px' }}>
+                  <input
+                    value={loginEmail}
+                    onChange={e => { setLoginEmail(e.target.value); setLoginError(''); }}
+                    type="email"
+                    autoComplete="email"
+                    style={{ border: 0, outline: 0, background: 'transparent', fontSize: 13, fontWeight: 700, width: 100, color: 'var(--ink)', fontFamily: 'inherit' }}
+                    placeholder="E-mail"
+                  />
+                  <div style={{ width: 1, height: 16, background: 'var(--slate-200)', margin: '0 4px', flexShrink: 0 }} />
+                  <input
+                    value={loginPassword}
+                    onChange={e => { setLoginPassword(e.target.value); setLoginError(''); }}
+                    onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                    type="password"
+                    autoComplete="current-password"
+                    style={{ border: 0, outline: 0, background: 'transparent', fontSize: 13, fontWeight: 700, width: 76, color: 'var(--ink)', fontFamily: 'inherit' }}
+                    placeholder="Senha"
+                  />
                   <button
                     onClick={handleLogin}
                     disabled={loginLoading}
-                    style={{ background: 'var(--sky-700)', color: '#fff', borderRadius: 999, padding: '8px 16px', fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap', border: 0, cursor: loginLoading ? 'default' : 'pointer', fontFamily: 'inherit', opacity: loginLoading ? 0.7 : 1 }}
+                    style={{ background: 'var(--sky-700)', color: '#fff', borderRadius: 9, padding: '8px 14px', fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap', border: 0, cursor: loginLoading ? 'default' : 'pointer', fontFamily: 'inherit', opacity: loginLoading ? 0.7 : 1, marginLeft: 4 }}
                   >{loginLoading ? '...' : 'Entrar'}</button>
                 </div>
               </div>
@@ -401,7 +918,7 @@ export default function App() {
               <button className="pub-btn pub-btn-primary pub-btn-lg pub-btn-block" onClick={() => openModal('FAMILIAR')}>
                 Garantir meu preço especial →
               </button>
-              <div className="pub-mono" style={{ textAlign: 'center' }}>sem cartão · 30 segundos · cancela quando quiser</div>
+              <div className="pub-mono" style={{ textAlign: 'center', fontSize: 13 }}>sem cartão · 30 segundos · cancela quando quiser</div>
             </div>
             <VagasCounter remaining={remaining} />
             <ul style={{ listStyle: 'none', padding: 0, margin: '18px 0 0', display: 'grid', gap: 6, fontSize: 13.5, color: 'var(--ink-2)', fontWeight: 700 }}>
@@ -410,10 +927,8 @@ export default function App() {
             </ul>
           </div>
           {desktop && (
-            <div className="pub-ph" style={{ aspectRatio: '5/6', minHeight: 480, fontSize: 12 }}>
-              mock do app
-              <small>chamada de vídeo com médico</small>
-              <small>360 × 640 · plano de fundo neutro</small>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <img src={medicosImg} alt="Consulta médica online" style={{ width: '100%', height: 'auto', borderRadius: 20 }} />
             </div>
           )}
         </div>
@@ -467,8 +982,10 @@ export default function App() {
             {PERSONAS.map((p, i) => (
               <article key={i} className="pub-card" style={{ padding: 16 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-                  <div style={{ width: 56, height: 56, borderRadius: '50%', background: `linear-gradient(135deg, ${p.color}, color-mix(in oklab, ${p.color} 40%, white))`, color: '#fff', flexShrink: 0, display: 'grid', placeItems: 'center', fontSize: 18, fontWeight: 900 }}>
-                    {p.name.split(',')[0].split(' ').slice(0, 2).map(w => w[0]).join('')}
+                  <div style={{ width: 56, height: 56, borderRadius: '50%', background: `linear-gradient(135deg, ${p.color}, color-mix(in oklab, ${p.color} 40%, white))`, color: '#fff', flexShrink: 0, display: 'grid', placeItems: 'center', fontSize: 18, fontWeight: 900, overflow: 'hidden' }}>
+                    {p.photo
+                      ? <img src={p.photo} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top' }} />
+                      : p.name.split(',')[0].split(' ').slice(0, 2).map((w: string) => w[0]).join('')}
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 15, fontWeight: 900 }}>{p.name}</div>
@@ -489,8 +1006,32 @@ export default function App() {
       <section id="especialidades" className="pub-section" style={{ background: 'var(--slate-50)' }}>
         <div className="pub-wrap">
           <span className="pub-eyebrow">Especialidades</span>
-          <h2 className="pub-h2">{ESPECIALIDADES.length}+ especialidades, do bebê à vovó.</h2>
+          <h2 className="pub-h2">{allEsp.length}+ especialidades, do bebê à vovó.</h2>
           <p className="pub-lead">3 sempre disponíveis 24h, sem agendar. As outras, com hora marcada em até 7 dias.</p>
+
+          {/* Strip 24h — destaque principal */}
+          <div style={{ marginTop: 20, padding: '18px 20px', background: 'linear-gradient(135deg, var(--green-600), var(--green-700))', borderRadius: 16, color: '#fff' }}>
+            <div style={{ fontSize: 10.5, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.13em', opacity: 0.85, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#86efac', display: 'inline-block' }} />
+              Disponíveis agora · sem agendar · incluso no plano
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: desktop ? 'repeat(3, 1fr)' : '1fr', gap: 8 }}>
+              {ESP_24H.map(e => (
+                <div key={e.n} style={{ background: 'rgba(255,255,255,0.13)', border: '1px solid rgba(255,255,255,0.22)', borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 9, background: 'rgba(255,255,255,0.18)', display: 'grid', placeItems: 'center', fontSize: 17, flexShrink: 0 }}>
+                    {e.kids ? '◆' : '●'}
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 900, fontSize: 14, color: '#fff' }}>{e.n}</div>
+                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.78)', fontWeight: 700, marginTop: 2 }}>
+                      {e.kids ? '0–17 anos · 24h por dia' : '24h por dia · todo dia'}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div style={{ display: 'flex', gap: 6, marginTop: 22, overflowX: 'auto', paddingBottom: 4 }}>
             {espTabs.map(t => (
               <button key={t.id} onClick={() => setEspFilter(t.id)} style={{ padding: '8px 14px', borderRadius: 999, border: `1.5px solid ${espFilter === t.id ? 'var(--sky-700)' : 'var(--slate-200)'}`, background: espFilter === t.id ? 'var(--sky-900)' : '#fff', color: espFilter === t.id ? '#fff' : 'var(--ink-2)', fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', flexShrink: 0 }}>
@@ -499,8 +1040,10 @@ export default function App() {
               </button>
             ))}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: desktop ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)', gap: 8, marginTop: 16 }}>
-            {visibleEsp.map(e => <EspChip key={e.n} e={e} />)}
+          <div className="esp-chip-grid">
+            {visibleEsp.map(e => (
+              <EspChip key={e.n} e={e} onBook={e.price && e.price > 0 ? () => setAgendarEsp(e) : undefined} />
+            ))}
           </div>
           <div style={{ marginTop: 18, padding: 14, background: '#fff', borderRadius: 12, border: '1px solid var(--slate-200)', fontSize: 12.5, color: 'var(--ink-2)', lineHeight: 1.55, fontWeight: 600 }}>
             <strong style={{ color: 'var(--ink)' }}>Como funciona o agendamento:</strong> você pede pelo app, nossa equipe analisa o caso e marca em até 7 dias úteis. Casos graves entram com prioridade máxima.
@@ -572,10 +1115,19 @@ export default function App() {
                 </div>
                 <div style={{ display: 'grid', gap: 10 }}>
                   {p.items.map(it => (
-                    <div key={it.freq} style={{ border: '1px solid var(--slate-200)', borderRadius: 12, padding: 14, background: '#fff' }}>
+                    <div
+                      key={it.freq}
+                      onClick={() => setSelectedPacote({ area: p.area, color: p.color, colorSoft: p.colorSoft, item: it })}
+                      style={{ border: `1.5px solid ${p.color}33`, borderRadius: 12, padding: 14, background: '#fff', cursor: 'pointer', transition: 'border-color 0.15s, box-shadow 0.15s' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = p.color; (e.currentTarget as HTMLDivElement).style.boxShadow = `0 2px 10px ${p.color}22`; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = `${p.color}33`; (e.currentTarget as HTMLDivElement).style.boxShadow = 'none'; }}
+                    >
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                         <div style={{ fontWeight: 900, fontSize: 13.5 }}>{it.freq}</div>
-                        {it.save && <span style={{ padding: '2px 8px', borderRadius: 999, background: 'var(--green-50)', color: 'var(--green-700)', fontSize: 10, fontWeight: 900 }}>{it.save}</span>}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          {it.save && <span style={{ padding: '2px 8px', borderRadius: 999, background: 'var(--green-50)', color: 'var(--green-700)', fontSize: 10, fontWeight: 900 }}>{it.save}</span>}
+                          <span style={{ fontSize: 11, fontWeight: 900, color: p.color, background: p.colorSoft, padding: '2px 8px', borderRadius: 6 }}>Contratar →</span>
+                        </div>
                       </div>
                       <div style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 700, marginBottom: 8 }}>{it.n}</div>
                       <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--sky-900)', letterSpacing: '-0.02em' }}>{it.total}</div>
@@ -650,8 +1202,8 @@ export default function App() {
           <span className="pub-eyebrow">Planos</span>
           <h2 className="pub-h2">Escolha o seu. Sem fidelidade.</h2>
           <p className="pub-lead">Preços de lançamento garantidos só pras primeiras {TOTAL_VAGAS} pessoas.</p>
-          <div style={{ display: 'grid', gridTemplateColumns: desktop ? 'repeat(3, 1fr)' : '1fr', gap: 14, marginTop: 24, alignItems: 'start' }}>
-            {PLANS.map(p => (
+          <div style={{ display: 'grid', gridTemplateColumns: desktop ? `repeat(${(apiPlans ?? PLANS_DEFAULT).length}, 1fr)` : '1fr', gap: 14, marginTop: 24, alignItems: 'start' }}>
+            {(apiPlans ?? PLANS_DEFAULT).map(p => (
               <article key={p.id} style={{ padding: 22, position: 'relative', borderRadius: 14, border: `${p.highlight ? 2 : 1}px solid ${p.highlight ? 'var(--green-500)' : 'var(--slate-200)'}`, background: p.highlight ? 'linear-gradient(180deg, var(--green-50), #fff 40%)' : '#fff' }}>
                 {p.tag && <span style={{ position: 'absolute', top: -12, left: 18, background: 'var(--green-500)', color: '#fff', padding: '4px 10px', borderRadius: 999, fontSize: 10.5, fontWeight: 900, letterSpacing: '0.06em' }}>{p.tag.toUpperCase()}</span>}
                 <h3 style={{ fontSize: 18, fontWeight: 900, marginBottom: 6 }}>{p.name}</h3>
@@ -661,7 +1213,7 @@ export default function App() {
                   <span style={{ fontSize: 44, fontWeight: 900, lineHeight: 1, letterSpacing: '-0.03em', color: 'var(--sky-900)' }}>{p.price}</span>
                   <span style={{ fontSize: 13, color: 'var(--ink-2)', fontWeight: 700 }}>{p.period}</span>
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--ink-3)', textDecoration: 'line-through', marginBottom: 16 }}>Normal R$ {p.strike}</div>
+                {p.strike && <div style={{ fontSize: 12, color: 'var(--ink-3)', textDecoration: 'line-through', marginBottom: 16 }}>Normal R$ {p.strike}</div>}
                 <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 18px', display: 'grid', gap: 8 }}>
                   {p.perks.map(k => (
                     <li key={k} style={{ display: 'flex', gap: 8, fontSize: 14, color: 'var(--ink-2)' }}>
@@ -669,7 +1221,7 @@ export default function App() {
                     </li>
                   ))}
                 </ul>
-                <button onClick={() => remaining > 0 && openModal(p.id)} disabled={remaining === 0} className={`pub-btn pub-btn-block ${p.highlight ? 'pub-btn-primary' : 'pub-btn-outline'}`}>
+                <button onClick={() => remaining > 0 && openModal(p.id)} disabled={remaining === 0} className={`pub-btn pub-btn-block ${p.highlight ? 'pub-btn-primary' : 'pub-btn-outline'}`} style={{ whiteSpace: 'normal', lineHeight: 1.3 }}>
                   {remaining === 0 ? 'Vagas esgotadas' : p.cta}
                 </button>
               </article>
@@ -698,6 +1250,7 @@ export default function App() {
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 800 }}>{t.n}</div>
                     <div className="pub-mono">{t.c}</div>
+                    <div style={{ fontSize: 10.5, color: '#94a3b8', fontWeight: 600, marginTop: 2 }}>{t.since}</div>
                   </div>
                 </figcaption>
               </figure>
@@ -712,7 +1265,7 @@ export default function App() {
           <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 900, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#86efac', background: 'rgba(16,185,129,0.15)', padding: '5px 10px', borderRadius: 6, marginBottom: 12 }}>Conformidade</span>
           <h2 style={{ color: '#fff', fontSize: desktop ? 36 : 26, lineHeight: 1.15 }}>Operação 100% dentro da lei.</h2>
           <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 15, marginTop: 8, maxWidth: '44ch' }}>
-            Plataforma operada pela LSX Medical com gestão clínica auditada, sigilo profissional e proteção total dos seus dados.
+            Plataforma operada pela Meditele com gestão clínica auditada, sigilo profissional e proteção total dos seus dados.
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: desktop ? 'repeat(4, 1fr)' : 'repeat(2, 1fr)', gap: 12, marginTop: 22 }}>
             {[
@@ -778,17 +1331,20 @@ export default function App() {
                 <img src="/logo.png" alt="Saúde Agora 24h" style={{ height: 30 }} />
               </div>
               <p style={{ marginTop: 16, fontSize: 13.5, opacity: 0.72, lineHeight: 1.55, maxWidth: '36ch' }}>
-                Plataforma de telemedicina operada pela <strong style={{ color: '#fff' }}>LSX Medical</strong>. Médicos brasileiros com CRM ativo. Atendimento 24h, todos os dias do ano.
+                Plataforma de telemedicina operada pela <strong style={{ color: '#fff' }}>Meditele</strong>. Médicos brasileiros com CRM ativo. Atendimento 24h, todos os dias do ano.
               </p>
               <div style={{ marginTop: 20, display: 'grid', gap: 10 }}>
                 {[
-                  { icon: <WaIcon size={16} />, label: '(87) 9 9999-0000', sub: 'Suporte · 8h às 22h, todos os dias' },
-                  { icon: '📍', label: 'Petrolina · Pernambuco', sub: 'Cobertura nacional pelo app' },
+                  { icon: <WaIcon size={16} />, label: '(87) 9 9659-3551', sub: 'Suporte · 8h às 22h, todos os dias', href: 'https://wa.me/5587996593551' as string | null },
+                  { icon: '🇧🇷', label: 'Todos os estados do Brasil', sub: 'Atendimento 100% online · sem fronteiras', href: null },
                 ].map((c, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid #1e293b', color: '#86efac', display: 'grid', placeItems: 'center', flexShrink: 0 }}>{c.icon}</div>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 800, color: '#fff' }}>{c.label}</div>
+                      {c.href
+                        ? <a href={c.href} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, fontWeight: 800, color: '#fff', textDecoration: 'none' }}>{c.label}</a>
+                        : <div style={{ fontSize: 13, fontWeight: 800, color: '#fff' }}>{c.label}</div>
+                      }
                       <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600, marginTop: 1 }}>{c.sub}</div>
                     </div>
                   </div>
@@ -796,14 +1352,30 @@ export default function App() {
               </div>
             </div>
             {[
-              { title: 'Produto', links: ['Como funciona', 'Para quem é', 'Especialidades', 'Saúde mental', 'Planos e preços'] },
-              { title: 'Empresa', links: ['Sobre nós', 'Imprensa', 'Contato'] },
-              { title: 'Ajuda & legal', links: ['Central de ajuda', 'Política de Privacidade', 'Termos de uso', 'LGPD', 'Cancelamento'] },
+              { title: 'Produto', links: [
+                { l: 'Como funciona', href: '#como-funciona' },
+                { l: 'Para quem é', href: '#' },
+                { l: 'Especialidades', href: '#especialidades' },
+                { l: 'Saúde mental', href: '#' },
+                { l: 'Planos e preços', href: '#planos' },
+              ]},
+              { title: 'Empresa', links: [
+                { l: 'Sobre nós', href: '#' },
+                { l: 'Imprensa', href: '#' },
+                { l: 'Contato', href: 'https://wa.me/5587996593551' },
+              ]},
+              { title: 'Ajuda & legal', links: [
+                { l: 'Central de ajuda', href: '#' },
+                { l: 'Política de Privacidade', href: '/privacidade' },
+                { l: 'Termos de uso', href: '/termos' },
+                { l: 'LGPD', href: '/privacidade' },
+                { l: 'Cancelamento', href: '/termos' },
+              ]},
             ].map(col => (
               <div key={col.title}>
                 <div style={{ fontWeight: 900, color: '#fff', marginBottom: 14, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.14em' }}>{col.title}</div>
                 <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 10 }}>
-                  {col.links.map(l => <li key={l}><a href="#" style={{ color: '#cbd5e1', fontSize: 13.5, fontWeight: 600, opacity: 0.8, textDecoration: 'none' }}>{l}</a></li>)}
+                  {col.links.map(link => <li key={link.l}><a href={link.href} style={{ color: '#cbd5e1', fontSize: 13.5, fontWeight: 600, opacity: 0.8, textDecoration: 'none' }}>{link.l}</a></li>)}
                 </ul>
               </div>
             ))}
@@ -812,7 +1384,7 @@ export default function App() {
           <div style={{ marginTop: 36, padding: '20px 0', borderTop: '1px solid #1e293b', borderBottom: '1px solid #1e293b', display: 'grid', gridTemplateColumns: desktop ? '1fr 1fr' : '1fr', gap: 20, alignItems: 'center' }}>
             <div>
               <div style={{ fontSize: 10, fontWeight: 900, color: '#94a3b8', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 10 }}>Operação regulamentada</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: desktop ? 'repeat(4, 1fr)' : 'repeat(2, 1fr)', gap: 8 }}>
                 {[{ l: 'LGPD', s: 'Lei 13.709/18' }, { l: 'CFM', s: 'Res. 2.314/22' }, { l: 'Sigilo médico', s: 'Garantido' }, { l: '+500 médicos', s: 'CRM ativo' }].map(s => (
                   <div key={s.l} style={{ padding: '7px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid #1e293b', borderRadius: 8, fontSize: 11 }}>
                     <div style={{ color: '#fff', fontWeight: 900 }}>{s.l}</div>
@@ -834,7 +1406,7 @@ export default function App() {
           </div>
 
           <div style={{ paddingTop: 20, display: 'flex', flexWrap: 'wrap', gap: 14, justifyContent: 'space-between', fontSize: 11, color: '#64748b', fontWeight: 700 }}>
-            <span>© 2026 Saúde Agora 24h · CNPJ XX.XXX.XXX/0001-XX · saudeagora24h.com.br</span>
+            <span>© 2026 Saúde Agora 24h · CNPJ 61.402.802/0001-12 · saudeagora24h.com.br</span>
             <div style={{ display: 'flex', gap: 10 }}>
               {[{ l: 'IG', t: 'Instagram' }, { l: 'FB', t: 'Facebook' }, { l: 'TT', t: 'TikTok' }].map(s => (
                 <span key={s.l} title={s.t} style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid #1e293b', color: '#cbd5e1', fontSize: 10, fontWeight: 900, display: 'grid', placeItems: 'center' }}>{s.l}</span>
@@ -853,8 +1425,60 @@ export default function App() {
         <WaIcon size={26} />
       </a>
 
-      {/* ── MODAL ── */}
-      {showModal && <Modal onClose={() => setShowModal(false)} selectedPlan={selectedPlan} onPlanChange={setSelectedPlan} remaining={remaining} />}
+      {/* ── MODAL CHECKOUT ── */}
+      {showModal && <Modal onClose={() => setShowModal(false)} selectedPlan={selectedPlan} onPlanChange={setSelectedPlan} plans={apiPlans ?? PLANS_DEFAULT} />}
+
+      {/* ── MODAL PACOTE ── */}
+      {selectedPacote && (
+        <div
+          onClick={() => setSelectedPacote(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 999, padding: 16 }}
+        >
+          <div
+            onClick={ev => ev.stopPropagation()}
+            style={{ background: '#fff', borderRadius: '20px 20px 20px 20px', width: '100%', maxWidth: 480, padding: '28px 24px 32px', boxShadow: '0 -8px 40px rgba(0,0,0,0.2)' }}
+          >
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: selectedPacote.colorSoft, color: selectedPacote.color, borderRadius: 999, fontSize: 11, fontWeight: 900, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 14 }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor' }} />
+              {selectedPacote.area}
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: '#0f172a', marginBottom: 4 }}>
+              Pacote {selectedPacote.item.freq}
+            </div>
+            <div style={{ fontSize: 13, color: '#64748b', fontWeight: 600, marginBottom: 12 }}>
+              {selectedPacote.item.n}
+            </div>
+            <div style={{ fontSize: 36, fontWeight: 900, color: '#0f172a', marginBottom: 2 }}>
+              {selectedPacote.item.total}
+              <span style={{ fontSize: 13, color: '#94a3b8', fontWeight: 600 }}>/mês</span>
+            </div>
+            <div style={{ fontSize: 12, color: '#64748b', fontFamily: 'monospace', fontWeight: 700, marginBottom: 20 }}>
+              {selectedPacote.item.per}
+              {selectedPacote.item.save && <span style={{ marginLeft: 8, color: '#16a34a', fontWeight: 900 }}> · {selectedPacote.item.save}</span>}
+            </div>
+            <div style={{ padding: '12px 14px', borderRadius: 10, background: '#f0f9ff', border: '1px solid #bae6fd', fontSize: 13, color: '#0369a1', fontWeight: 600, marginBottom: 20, lineHeight: 1.6 }}>
+              📅 Sessões agendadas semanalmente ou quinzenalmente, por videochamada. O pagamento é realizado mensalmente.
+            </div>
+            <div style={{ display: 'grid', gap: 10 }}>
+              <button
+                onClick={() => { setSelectedPacote(null); setShowModal(true); setSelectedPlan('INDIVIDUAL'); }}
+                style={{ padding: '15px', borderRadius: 12, border: 0, background: `linear-gradient(135deg, ${selectedPacote.color}, ${selectedPacote.color}cc)`, color: '#fff', fontSize: 15, fontWeight: 900, cursor: 'pointer', fontFamily: 'inherit', boxShadow: `0 4px 16px ${selectedPacote.color}44` }}
+              >
+                Criar conta e contratar →
+              </button>
+              <button
+                onClick={() => setSelectedPacote(null)}
+                style={{ padding: '13px', borderRadius: 12, border: '1.5px solid #e2e8f0', background: '#fff', color: '#64748b', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── WIZARD AGENDAMENTO ESPECIALIDADE ── */}
+      {agendarEsp && <AgendarEspModal esp={agendarEsp} onClose={() => setAgendarEsp(null)} />}
     </div>
   );
 }

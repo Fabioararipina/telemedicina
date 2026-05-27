@@ -873,8 +873,7 @@ body {
   color: #0369a1; background: #e0f2fe;
   padding: 5px 10px; border-radius: 6px; margin-bottom: 12px;
 }
-.pub-h2 { font-size: 26px; line-height: 1.15; font-weight: 900; letter-spacing: -0.01em; }
-@media (min-width: 900px) { .pub-h2 { font-size: 40px; } }
+.pub-h2 { font-size: clamp(20px, 5.5vw, 40px); line-height: 1.15; font-weight: 900; letter-spacing: -0.01em; }
 .pub-lead { color: #334155; font-size: 16px; margin-top: 8px; }
 .pub-mono {
   font-family: ui-monospace, monospace; font-size: 11px;
@@ -935,6 +934,7 @@ body {
 .esp-tabs { display: flex; gap: 6px; margin-top: 22px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
 .esp-chip-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 16px; }
 @media (min-width: 768px) { .esp-chip-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 479px) { .esp-chip-grid { grid-template-columns: 1fr; } }
 
 /* footer cols + trust row */
 .footer-col-grid { display: grid; grid-template-columns: 1fr; gap: 28px; }
