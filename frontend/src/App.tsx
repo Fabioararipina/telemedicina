@@ -864,9 +864,15 @@ export default function App() {
 
           {desktop ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <form
+                id="header-login-form"
+                autoComplete="on"
+                onSubmit={e => { e.preventDefault(); handleLogin(); }}
+                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', border: `1.5px solid ${loginError ? '#ef4444' : 'var(--slate-200)'}`, borderRadius: 12, background: '#fff', padding: '3px 3px 3px 10px' }}>
                   <input
+                    name="email"
                     value={loginEmail}
                     onChange={e => { setLoginEmail(e.target.value); setLoginError(''); }}
                     type="email"
@@ -876,21 +882,21 @@ export default function App() {
                   />
                   <div style={{ width: 1, height: 16, background: 'var(--slate-200)', margin: '0 4px', flexShrink: 0 }} />
                   <input
+                    name="current-password"
                     value={loginPassword}
                     onChange={e => { setLoginPassword(e.target.value); setLoginError(''); }}
-                    onKeyDown={e => e.key === 'Enter' && handleLogin()}
                     type="password"
                     autoComplete="current-password"
                     style={{ border: 0, outline: 0, background: 'transparent', fontSize: 13, fontWeight: 700, width: 76, color: 'var(--ink)', fontFamily: 'inherit' }}
                     placeholder="Senha"
                   />
                   <button
-                    onClick={handleLogin}
+                    type="submit"
                     disabled={loginLoading}
                     style={{ background: 'var(--sky-700)', color: '#fff', borderRadius: 9, padding: '8px 14px', fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap', border: 0, cursor: loginLoading ? 'default' : 'pointer', fontFamily: 'inherit', opacity: loginLoading ? 0.7 : 1, marginLeft: 4 }}
                   >{loginLoading ? '...' : 'Entrar'}</button>
                 </div>
-              </div>
+              </form>
               {loginError && <span style={{ fontSize: 11, color: '#ef4444', fontWeight: 600 }}>{loginError}</span>}
             </div>
           ) : (
