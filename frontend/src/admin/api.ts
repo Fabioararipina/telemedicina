@@ -6,18 +6,69 @@ const H = { 'x-admin-token': ADMIN_TOKEN };
 
 /* ── Types ── */
 
+// ApiPlan — usado dentro de ApiSubscription (Prisma retorna Decimal como string)
 export interface ApiPlan {
   id: string;
   name: string;
-  price: string; // Decimal as string from Prisma
-  type: 'INDIVIDUAL' | 'FAMILIAR' | 'AVULSO' | string;
+  price: string;
+  type: 'INDIVIDUAL' | 'FAMILIAR' | 'AVULSO' | 'CORTESIA' | string;
+}
+
+// AdminPlan — retornado pelo endpoint /api/admin/plans (price já convertido para number)
+export interface AdminPlan {
+  id: string;
+  name: string;
+  price: number;
+  type: 'INDIVIDUAL' | 'FAMILIAR' | 'AVULSO' | 'CORTESIA' | string;
+  description?: string | null;
+  mediteleId?: string | null;
+  active: boolean;
+  activeSubscriptions: number;
+  meditele?: MeditelePlan | null;
+  // LP fields
+  showOnLp: boolean;
+  featured: boolean;
+  originalPrice?: number | null;
+  features?: string | null;   // JSON string
+  ctaLabel?: string | null;
+  periodLabel?: string | null;
+  sortOrder: number;
+}
+
+// LpPlan — retornado pelo endpoint público /api/plans
+export interface LpPlan {
+  id: string;
+  name: string;
+  price: number;
+  type: string;
+  description?: string | null;
+  mediteleId?: string | null;
+  featured: boolean;
+  originalPrice?: number | null;
+  features: string[];
+  ctaLabel?: string | null;
+  periodLabel?: string | null;
+  checkoutUrl?: string | null;
+}
+
+export interface MeditelePlan {
+  id: string;
+  label: string;
+  description: string;
+  monthlyPrice: string;
+  isFree: boolean;
+  maxDependents: number;
+  type: string;
+  active: boolean;
+  checkoutUrl: string | null;
 }
 
 export interface ApiSubscription {
   id: string;
-  status: 'ACTIVE' | 'PENDING' | string;
+  status: 'ACTIVE' | 'PENDING' | 'SUSPENDED' | 'CANCELLED' | string;
   startDate: string;
   endDate: string | null;
+  asaasSubscriptionId: string | null;
   plan: ApiPlan;
 }
 
@@ -28,8 +79,81 @@ export interface ApiUser {
   cpf: string;
   phone: string | null;
   lsxToken: string | null;
+  asaasCustomerId: string | null;
   createdAt: string;
   subscriptions: ApiSubscription[];
+}
+
+export interface AsaasPaymentItem {
+  id: string;
+  value: number;
+  dueDate: string;
+  status: string;
+  description: string;
+}
+
+export interface AsaasSubscriptionItem {
+  id: string;
+  status: string;
+  value: number;
+  nextDueDate: string;
+  cycle: string;
+  description: string;
+}
+
+export interface AsaasFinancial {
+  hasAsaas: boolean;
+  asaasCustomerId?: string;
+  subscriptions: AsaasSubscriptionItem[];
+  pendingPayments: AsaasPaymentItem[];
+  overduePayments: AsaasPaymentItem[];
+  totalPending: number;
+  totalOverdue: number;
+}
+
+export interface FinanceSummary {
+  hasAsaas: boolean;
+  mrr: number;
+  overdueCount: number;
+  overdueValue: number;
+  pendingCount: number;
+  pendingValue: number;
+  receivedCount: number;
+  receivedValue: number;
+  totalCount: number;
+}
+
+export interface FinancePayment {
+  id: string;
+  asaasCustomerId: string;
+  customerName: string;
+  customerPhone: string | null;
+  localUserId: string | null;
+  plan: string;
+  planType: string;
+  value: number;
+  dueDate: string;
+  status: string;
+  daysLate: number;
+  billingType: string;
+  invoiceUrl: string | null;
+  paymentDate: string | null;
+}
+
+export interface FinancePaymentsResult {
+  data: FinancePayment[];
+  totalCount: number;
+  hasMore: boolean;
+}
+
+export interface ApiEmployee {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  active: boolean;
+  createdAt: string;
+  totalSales: number;
 }
 
 export interface ApiLead {
@@ -75,6 +199,72 @@ export const adminApi = {
     axios.post<{ message: string; userId: string }>(
       `${BASE}/api/admin/vincular-paciente`, data, { headers: H }
     ).then(r => r.data),
+
+  createPatient: (data: {
+    name: string; email: string; cpf: string; phone?: string; planType?: string;
+  }) =>
+    axios.post<{ message: string; userId: string; mediteleStatus: string }>(
+      `${BASE}/api/admin/create-patient`, data, { headers: H }
+    ).then(r => r.data),
+
+  getPlans: () =>
+    axios.get<AdminPlan[]>(`${BASE}/api/admin/plans`, { headers: H }).then(r => r.data),
+
+  createPlan: (data: { name: string; price: number; type: string; description?: string; mediteleId?: string }) =>
+    axios.post<AdminPlan>(`${BASE}/api/admin/plans`, data, { headers: H }).then(r => r.data),
+
+  getMeditelePlans: () =>
+    axios.get<MeditelePlan[]>(`${BASE}/api/admin/plans/meditele`, { headers: H }).then(r => r.data),
+
+  updatePlan: (id: string, data: Partial<{
+    name: string; price: number; type: string; description: string; mediteleId: string; active: boolean;
+    showOnLp: boolean; featured: boolean; originalPrice: number | null;
+    features: string; ctaLabel: string; periodLabel: string; sortOrder: number;
+  }>) =>
+    axios.put<AdminPlan>(`${BASE}/api/admin/plans/${id}`, data, { headers: H }).then(r => r.data),
+
+  getPublicPlans: () =>
+    axios.get<LpPlan[]>(`${BASE}/api/plans`).then(r => r.data),
+
+  updateUser: (id: string, data: { name?: string; email?: string; phone?: string }) =>
+    axios.put<{ message: string }>(`${BASE}/api/admin/users/${id}`, data, { headers: H }).then(r => r.data),
+
+  updateSubscriptionStatus: (userId: string, status: 'ACTIVE' | 'PENDING' | 'SUSPENDED' | 'CANCELLED') =>
+    axios.post<{ message: string; asaasResult: string }>(
+      `${BASE}/api/admin/users/${userId}/subscription/status`,
+      { status },
+      { headers: H },
+    ).then(r => r.data),
+
+  deleteUser: (id: string) =>
+    axios.delete<{ message: string }>(`${BASE}/api/admin/users/${id}`, { headers: H }).then(r => r.data),
+
+  getFinancial: (userId: string) =>
+    axios.get<AsaasFinancial>(`${BASE}/api/admin/users/${userId}/financial`, { headers: H }).then(r => r.data),
+
+  getFinanceiroSummary: () =>
+    axios.get<FinanceSummary>(`${BASE}/api/admin/financeiro/summary`, { headers: H }).then(r => r.data),
+
+  getFinanceiroPayments: (status?: string, offset = 0, limit = 10) =>
+    axios.get<FinancePaymentsResult>(`${BASE}/api/admin/financeiro/payments`, {
+      headers: H,
+      params: { ...(status ? { status } : {}), offset, limit },
+    }).then(r => r.data),
+
+  // ── Employees ──────────────────────────────────────────────────────────
+  getEmployees: () =>
+    axios.get<ApiEmployee[]>(`${BASE}/api/admin/employees`, { headers: H }).then(r => r.data),
+
+  createEmployee: (data: { name: string; email: string; password: string; role?: string }) =>
+    axios.post<ApiEmployee>(`${BASE}/api/admin/employees`, data, { headers: H }).then(r => r.data),
+
+  updateEmployee: (id: string, data: { name?: string; email?: string; password?: string; role?: string; active?: boolean }) =>
+    axios.put<ApiEmployee>(`${BASE}/api/admin/employees/${id}`, data, { headers: H }).then(r => r.data),
+
+  getEmployeeSales: (id: string, offset = 0, limit = 20) =>
+    axios.get(`${BASE}/api/admin/employees/${id}/sales`, {
+      headers: H, params: { offset, limit },
+    }).then(r => r.data),
 };
 
 /* ── Helpers ── */

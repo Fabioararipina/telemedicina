@@ -7,6 +7,9 @@ import { ScreenPacientes, ScreenPacienteDetail } from './screens/Pacientes';
 import { ScreenReceber } from './screens/Financeiro';
 import { ScreenRelatorio } from './screens/Relatorio';
 import { ScreenVincularPaciente } from './screens/VincularPaciente';
+import { ScreenPlanos } from './screens/Planos';
+import { ScreenGateway } from './screens/Gateway';
+import { ScreenUsuarios } from './screens/Usuarios';
 import type { ApiUser } from './api';
 
 type ScreenId =
@@ -32,7 +35,7 @@ export default function AdminApp() {
 
   const nav = (id: string) => setScreen(id as ScreenId);
 
-  const KNOWN: ScreenId[] = ['login', 'dashboard', 'pacientes', 'paciente-detail', 'vincular-paciente', 'receber', 'rep-financeiro'];
+  const KNOWN: ScreenId[] = ['login', 'dashboard', 'pacientes', 'paciente-detail', 'vincular-paciente', 'planos', 'receber', 'rep-financeiro', 'gateway', 'usuarios'];
 
   return (
     <div className="sa-app" style={{ minHeight: '100vh' }}>
@@ -41,8 +44,11 @@ export default function AdminApp() {
       {screen === 'pacientes'       && <ScreenPacientes onNav={nav} onSelectUser={setSelectedUser} />}
       {screen === 'paciente-detail' && <ScreenPacienteDetail onNav={nav} user={selectedUser} />}
       {screen === 'vincular-paciente' && <ScreenVincularPaciente onNav={nav} />}
+      {screen === 'planos'            && <ScreenPlanos onNav={nav} />}
       {screen === 'receber'         && <ScreenReceber onNav={nav} />}
       {screen === 'rep-financeiro'  && <ScreenRelatorio onNav={nav} />}
+      {screen === 'gateway'         && <ScreenGateway onNav={nav} />}
+      {screen === 'usuarios'        && <ScreenUsuarios onNav={nav} />}
       {!KNOWN.includes(screen)      && <PlaceholderScreen screen={screen} onNav={nav} />}
     </div>
   );

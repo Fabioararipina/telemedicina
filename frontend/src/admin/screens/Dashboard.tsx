@@ -3,6 +3,7 @@ import { Sidebar, Topbar, PageHeader, KpiCard, Sparkline } from '../shell';
 import { Ic } from '../icons';
 import { LineChart } from '../charts';
 import { adminApi, computeStats, fmtBRL, type DashboardStats } from '../api';
+import { NewPatientModal } from '../components/NewPatientModal';
 
 interface Props { onNav: (id: string) => void; }
 
@@ -11,6 +12,7 @@ export function ScreenDashboard({ onNav }: Props) {
   const [leadsCount, setLeadsCount] = useState<number | null>(null);
   const [dispatching, setDispatching] = useState(false);
   const [dispatchResult, setDispatchResult] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
     adminApi.getUsers().then(users => setStats(computeStats(users))).catch(console.error);
@@ -58,7 +60,7 @@ export function ScreenDashboard({ onNav }: Props) {
               <>
                 <button className="btn btn-secondary"><Ic.cal />Maio 2026</button>
                 <button className="btn btn-secondary"><Ic.download />Exportar</button>
-                <button className="btn btn-primary" onClick={() => onNav('pacientes')}><Ic.plus />Novo paciente</button>
+                <button className="btn btn-primary" onClick={() => setShowModal(true)}><Ic.plus />Novo paciente</button>
               </>
             }
           />
@@ -184,6 +186,8 @@ export function ScreenDashboard({ onNav }: Props) {
           </div>
         </div>
       </main>
+
+      <NewPatientModal open={showModal} onClose={() => setShowModal(false)} />
     </div>
   );
 }

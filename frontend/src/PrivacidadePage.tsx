@@ -52,7 +52,7 @@ export default function PrivacidadePage() {
               <p>
                 Não coletamos dados de saúde sensíveis (diagnósticos, histórico clínico) diretamente em
                 nosso sistema — esses dados são tratados exclusivamente pela plataforma médica parceira
-                (LSX Telemedicina), sujeita às suas próprias políticas de privacidade.
+                (Meditele), sujeita às suas próprias políticas de privacidade.
               </p>
             </section>
 
@@ -74,9 +74,9 @@ export default function PrivacidadePage() {
               <h2>4. Compartilhamento de dados com terceiros</h2>
               <p>
                 Seus dados pessoais (nome, CPF, e-mail e telefone) são compartilhados com a{' '}
-                <strong>LSX Telemedicina</strong>, nossa plataforma médica parceira, exclusivamente
+                <strong>Meditele</strong>, nossa plataforma médica parceira, exclusivamente
                 para a criação do seu perfil de paciente e viabilização das consultas online.
-                A LSX opera como operadora de dados nos termos da LGPD.
+                A Meditele opera como operadora de dados nos termos da LGPD.
               </p>
               <p>
                 Não vendemos, alugamos nem compartilhamos seus dados com outros terceiros para fins

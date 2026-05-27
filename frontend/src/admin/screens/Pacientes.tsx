@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar, Topbar, PageHeader } from '../shell';
 import { Ic } from '../icons';
-import { adminApi, mapUserToRow, userActiveSub, type ApiUser } from '../api';
+import { adminApi, mapUserToRow, userActiveSub, type ApiUser, type AsaasFinancial } from '../api';
+import { NewPatientModal }    from '../components/NewPatientModal';
+import { EditPatientModal }    from '../components/EditPatientModal';
+import { DeletePatientModal }  from '../components/DeletePatientModal';
+
+// Keyframe para spinner no EditPatientModal
+const SPIN_STYLE = `@keyframes spin { to { transform: rotate(360deg); } }`;
 
 interface Props { onNav: (id: string) => void; onSelectUser?: (user: ApiUser) => void; }
 interface DetailProps { onNav: (id: string) => void; user?: ApiUser | null; }
@@ -19,12 +25,19 @@ export function ScreenPacientes({ onNav, onSelectUser }: Props) {
   const [search, setSearch] = useState('');
   const [planFilter, setPlanFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [showModal,   setShowModal]   = useState(false);
+  const [editUser,    setEditUser]    = useState<ApiUser | null>(null);
+  const [deleteUser,  setDeleteUser]  = useState<ApiUser | null>(null);
 
-  useEffect(() => {
+  const loadUsers = () => {
+    setLoading(true);
     adminApi.getUsers()
       .then(data => { setUsers(data); setLoading(false); })
       .catch(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { loadUsers(); }, []);
+
 
   const rows = users.map((u, i) => ({ ...mapUserToRow(u, i), _user: u }));
 
@@ -52,7 +65,7 @@ export function ScreenPacientes({ onNav, onSelectUser }: Props) {
             actions={
               <>
                 <button className="btn btn-secondary"><Ic.download />Exportar CSV</button>
-                <button className="btn btn-primary"><Ic.plus />Novo paciente</button>
+                <button className="btn btn-primary" onClick={() => setShowModal(true)}><Ic.plus />Novo paciente</button>
               </>
             }
           />
@@ -102,7 +115,7 @@ export function ScreenPacientes({ onNav, onSelectUser }: Props) {
                     <th>Status</th>
                     <th>Desde</th>
                     <th className="num">Mensalidade</th>
-                    <th style={{ width: 130 }}></th>
+                    <th style={{ width: 148 }}></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -128,9 +141,14 @@ export function ScreenPacientes({ onNav, onSelectUser }: Props) {
                         <td className="num" style={{ fontWeight: 700 }}>{p.value}</td>
                         <td className="actions">
                           <button title="Visualizar" onClick={() => { onSelectUser?.(p._user); onNav('paciente-detail'); }}><Ic.eye /></button>
-                          <button title="Editar"><Ic.edit /></button>
-                          <button title="WhatsApp"><Ic.whatsapp /></button>
-                          <button title="Mais"><Ic.more /></button>
+                          <button title="Editar" onClick={() => setEditUser(p._user)}><Ic.edit /></button>
+                          <button title="WhatsApp" onClick={() => p.phone !== '—' && window.open(`https://wa.me/55${p._user.phone?.replace(/\D/g,'')}`, '_blank')}><Ic.whatsapp /></button>
+                          <button
+                            title="Excluir paciente"
+                            onClick={() => setDeleteUser(p._user)}
+                            style={{ color: 'var(--red-400)' }}>
+                            <Ic.trash />
+                          </button>
                         </td>
                       </tr>
                     );
@@ -146,15 +164,40 @@ export function ScreenPacientes({ onNav, onSelectUser }: Props) {
           </div>
         </div>
       </main>
+
+      <NewPatientModal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        onCreated={loadUsers}
+      />
+
+      <EditPatientModal
+        user={editUser}
+        open={editUser !== null}
+        onClose={() => setEditUser(null)}
+        onSaved={loadUsers}
+      />
+
+      <DeletePatientModal
+        user={deleteUser}
+        open={deleteUser !== null}
+        onClose={() => setDeleteUser(null)}
+        onDeleted={() => { setDeleteUser(null); loadUsers(); }}
+      />
     </div>
   );
 }
 
 /* ── Paciente detail ── */
 export function ScreenPacienteDetail({ onNav, user }: DetailProps) {
-  const [magicLink, setMagicLink] = useState<string | null>(null);
-  const [mlLoading, setMlLoading] = useState(false);
-  const [mlError, setMlError] = useState<string | null>(null);
+  const [magicLink,    setMagicLink]   = useState<string | null>(null);
+  const [mlLoading,    setMlLoading]   = useState(false);
+  const [mlError,      setMlError]     = useState<string | null>(null);
+  const [showEdit,     setShowEdit]    = useState(false);
+  const [showDelete,   setShowDelete]  = useState(false);
+  const [detailTab,    setDetailTab]   = useState<'consultas' | 'pagamentos'>('consultas');
+  const [financial,    setFinancial]   = useState<AsaasFinancial | null>(null);
+  const [finLoading,   setFinLoading]  = useState(false);
 
   const handleMagicLink = async () => {
     if (!user) return;
@@ -171,9 +214,9 @@ export function ScreenPacienteDetail({ onNav, user }: DetailProps) {
     }
   };
 
-  const row   = user ? mapUserToRow(user, 0) : null;
-  const sub   = user ? userActiveSub(user) : null;
-  const stInfo = STATUS_PILL[row?.status ?? 'inativo'] ?? STATUS_PILL['inativo'];
+  const row      = user ? mapUserToRow(user, 0) : null;
+  const sub      = user ? userActiveSub(user) : null;
+  const stInfo   = STATUS_PILL[row?.status ?? 'inativo'] ?? STATUS_PILL['inativo'];
 
   const displayName = user?.name ?? 'Paciente';
   const initials    = row?.init ?? '??';
@@ -181,12 +224,20 @@ export function ScreenPacienteDetail({ onNav, user }: DetailProps) {
   const planTone    = row?.planTone ?? 'muted';
   const since       = sub ? new Date(sub.startDate).toLocaleDateString('pt-BR') : (row?.since ?? '—');
 
-  const consultas = [
-    { d: '18/05/2026 · 22h14', esp: 'Clínico Geral',             doc: 'Dr. Marcelo Vieira · CRM-PE 19844',    out: 'Atestado · 2 dias' },
-    { d: '02/05/2026 · 09h30', esp: 'Pediatria',                  doc: 'Dra. Renata Lima · CRM-CE 22011',      out: 'Orientação médica' },
-    { d: '12/04/2026 · 14h05', esp: 'Ginecologia',                doc: 'Dra. Bianca Costa · CRM-PE 18722',     out: 'Pedido de exames' },
-    { d: '28/03/2026 · 19h47', esp: 'Clínico Geral',              doc: 'Dr. André Cavalcanti · CRM-PI 12031',  out: 'Orientação médica' },
-  ];
+  // Carrega dados financeiros quando aba "Pagamentos" é ativada
+  const handleTabChange = (tab: 'consultas' | 'pagamentos') => {
+    setDetailTab(tab);
+    if (tab === 'pagamentos' && !financial && user) {
+      setFinLoading(true);
+      adminApi.getFinancial(user.id)
+        .then(d => setFinancial(d))
+        .catch(() => {})
+        .finally(() => setFinLoading(false));
+    }
+  };
+
+  const fmtDate = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString('pt-BR');
+  const fmtBRL  = (v: number) => `R$ ${v.toFixed(2).replace('.', ',')}`;
 
   return (
     <div className="sa-shell">
@@ -218,6 +269,14 @@ export function ScreenPacienteDetail({ onNav, user }: DetailProps) {
                   <Ic.whatsapp />Enviar WhatsApp
                 </button>
               )}
+              <button className="btn btn-secondary" onClick={() => setShowEdit(true)}>
+                <Ic.edit />Editar
+              </button>
+              <button className="btn btn-secondary"
+                style={{ color: 'var(--red-600)', borderColor: 'var(--red-200)' }}
+                onClick={() => setShowDelete(true)}>
+                <Ic.trash />Excluir
+              </button>
               <button className="btn btn-primary" onClick={handleMagicLink} disabled={mlLoading || !user?.lsxToken}>
                 <Ic.pill />{mlLoading ? 'Gerando…' : 'Gerar magic link'}
               </button>
@@ -248,39 +307,115 @@ export function ScreenPacienteDetail({ onNav, user }: DetailProps) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 18, alignItems: 'start' }}>
             <div style={{ display: 'grid', gap: 14 }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-                <SmallStat label="Plano" value={planLabel} sub={sub ? `desde ${since}` : '—'} />
-                <SmallStat label="Próx. pagamento" value={sub?.endDate ? new Date(sub.endDate).toLocaleDateString('pt-BR') : '—'} sub={row?.value ?? '—'} tone="success" />
-                <SmallStat label="Consultas (histórico)" value="—" sub="via Meditele" />
-                <SmallStat label="Mensalidade" value={row?.value ?? '—'} sub={sub?.plan.name ?? '—'} />
+                <SmallStat label="Plano"           value={planLabel}             sub={sub ? `desde ${since}` : '—'} />
+                <SmallStat label="Status"          value={stInfo.label}          sub={row?.status ?? '—'} />
+                <SmallStat label="Próx. vencimento" value={sub?.endDate ? new Date(sub.endDate).toLocaleDateString('pt-BR') : '—'} sub={row?.value ?? '—'} tone="success" />
+                <SmallStat label="Mensalidade"     value={row?.value ?? '—'}     sub={sub?.plan.name ?? '—'} />
               </div>
 
               <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                {/* Tabs */}
                 <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', paddingInline: 14 }}>
-                  {['Consultas', 'Pagamentos'].map((t, i) => (
-                    <div key={t} style={{ padding: '14px 18px', fontSize: 13, fontWeight: 800, color: i === 0 ? 'var(--ink)' : 'var(--ink-3)', borderBottom: i === 0 ? '2px solid var(--accent)' : '2px solid transparent', cursor: 'pointer' }}>{t}</div>
+                  {([
+                    { id: 'consultas',  label: 'Consultas' },
+                    { id: 'pagamentos', label: 'Pagamentos' },
+                  ] as const).map(t => (
+                    <div key={t.id} onClick={() => handleTabChange(t.id)}
+                      style={{ padding: '14px 18px', fontSize: 13, fontWeight: 800, cursor: 'pointer',
+                        color: detailTab === t.id ? 'var(--ink)' : 'var(--ink-3)',
+                        borderBottom: detailTab === t.id ? '2px solid var(--accent)' : '2px solid transparent' }}>
+                      {t.label}
+                    </div>
                   ))}
                 </div>
-                <div style={{ padding: 18 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                    <h3 style={{ fontSize: 14 }}>Histórico de consultas · Meditele</h3>
-                    <span className="tag-id">dados ilustrativos</span>
+
+                {/* Aba: Consultas */}
+                {detailTab === 'consultas' && (
+                  <div style={{ padding: 24, textAlign: 'center' }}>
+                    <div style={{ marginBottom: 12, color: 'var(--ink-3)', fontSize: 32 }}>🏥</div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink-2)', marginBottom: 8 }}>
+                      Histórico de consultas
+                    </div>
+                    <div style={{ fontSize: 13, color: 'var(--ink-3)', fontWeight: 600, marginBottom: 16, lineHeight: 1.6 }}>
+                      O histórico de consultas está disponível<br />
+                      diretamente no portal de telemedicina.
+                    </div>
+                    {user?.lsxToken ? (
+                      <button className="btn btn-secondary" onClick={handleMagicLink} disabled={mlLoading}>
+                        <Ic.pill />{mlLoading ? 'Gerando…' : 'Abrir portal via magic link'}
+                      </button>
+                    ) : (
+                      <span className="tag-id">Paciente sem ID de telemedicina</span>
+                    )}
                   </div>
-                  <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 0 }}>
-                    {consultas.map((c, i) => (
-                      <li key={i} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 14, padding: '12px 0', borderBottom: i < consultas.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                        <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--accent-soft)', color: 'var(--accent-strong)', display: 'grid', placeItems: 'center' }}>
-                          <Ic.pill />
-                        </div>
-                        <div>
-                          <div style={{ fontSize: 13, fontWeight: 800 }}>{c.esp}</div>
-                          <div style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600, marginTop: 2 }}>{c.doc}</div>
-                          <div style={{ fontSize: 11.5, color: 'var(--accent-strong)', fontWeight: 700, marginTop: 4 }}>{c.out}</div>
-                        </div>
-                        <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>{c.d}</div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                )}
+
+                {/* Aba: Pagamentos */}
+                {detailTab === 'pagamentos' && (
+                  <div style={{ padding: 18 }}>
+                    <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 14 }}>
+                      Situação financeira · Asaas
+                    </div>
+
+                    {finLoading ? (
+                      <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--ink-3)', fontWeight: 700 }}>
+                        Carregando dados financeiros…
+                      </div>
+                    ) : !financial ? (
+                      <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--ink-3)', fontWeight: 700 }}>
+                        Sem dados Asaas para este paciente.
+                      </div>
+                    ) : !financial.hasAsaas ? (
+                      <div style={{ padding: '12px 14px', borderRadius: 9, background: 'var(--slate-50)',
+                        border: '1px solid var(--border)', fontSize: 13, color: 'var(--ink-3)', fontWeight: 600 }}>
+                        Paciente não cadastrado no Asaas.
+                      </div>
+                    ) : (
+                      <div style={{ display: 'grid', gap: 10 }}>
+                        {/* Assinaturas */}
+                        {financial.subscriptions.length > 0 && (
+                          <div>
+                            <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
+                              Assinaturas
+                            </div>
+                            {financial.subscriptions.map(s => (
+                              <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 8, background: 'var(--slate-50)', border: '1px solid var(--border)', marginBottom: 6 }}>
+                                <div>
+                                  <div style={{ fontSize: 13, fontWeight: 800 }}>{s.description}</div>
+                                  <div style={{ fontSize: 11, color: 'var(--ink-3)', fontWeight: 600 }}>
+                                    {s.cycle} · próx: {s.nextDueDate ? fmtDate(s.nextDueDate) : '—'}
+                                  </div>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <span style={{ fontSize: 14, fontWeight: 900 }}>{fmtBRL(s.value)}</span>
+                                  <span className={`pill ${s.status === 'ACTIVE' ? 'success' : 'warn'}`} style={{ fontSize: 10 }}>
+                                    {s.status}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Pendentes */}
+                        {financial.pendingPayments.length > 0 && (
+                          <PaymentList title="Cobranças pendentes" items={financial.pendingPayments} tone="warn" fmtDate={fmtDate} fmtBRL={fmtBRL} />
+                        )}
+
+                        {/* Em atraso */}
+                        {financial.overduePayments.length > 0 && (
+                          <PaymentList title="Em atraso" items={financial.overduePayments} tone="danger" fmtDate={fmtDate} fmtBRL={fmtBRL} />
+                        )}
+
+                        {financial.subscriptions.length === 0 && financial.pendingPayments.length === 0 && financial.overduePayments.length === 0 && (
+                          <div style={{ textAlign: 'center', padding: '16px 0', color: 'var(--green-700)', fontWeight: 700, fontSize: 13 }}>
+                            ✓ Sem cobranças pendentes ou em atraso.
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -310,16 +445,36 @@ export function ScreenPacienteDetail({ onNav, user }: DetailProps) {
               <div className="card">
                 <h3 style={{ fontSize: 14, marginBottom: 12 }}>Ações rápidas</h3>
                 <div style={{ display: 'grid', gap: 6 }}>
-                  {user?.phone && <QuickAction icon={<Ic.whatsapp />} label="Enviar mensagem" />}
-                  <QuickAction icon={<Ic.pill />}    label="Gerar novo magic link" />
-                  <QuickAction icon={<Ic.edit />}    label="Registrar anotação" />
-                  <QuickAction icon={<Ic.x />}       label="Inativar paciente" danger />
+                  {user?.phone && (
+                    <QuickAction icon={<Ic.whatsapp />} label="Enviar mensagem"
+                      onClick={() => window.open(`https://wa.me/55${user.phone!.replace(/\D/g, '')}`, '_blank')} />
+                  )}
+                  <QuickAction icon={<Ic.pill />}  label="Gerar novo magic link" onClick={handleMagicLink} />
+                  <QuickAction icon={<Ic.edit />}  label="Editar dados" onClick={() => setShowEdit(true)} />
+                  <QuickAction icon={<Ic.x />}     label="Cancelar assinatura" danger onClick={() => setShowEdit(true)} />
+                  <QuickAction icon={<Ic.trash />} label="Excluir paciente" danger onClick={() => setShowDelete(true)} />
                 </div>
               </div>
             </aside>
           </div>
         </div>
       </main>
+
+      <style>{SPIN_STYLE}</style>
+
+      <EditPatientModal
+        user={showEdit ? (user ?? null) : null}
+        open={showEdit}
+        onClose={() => setShowEdit(false)}
+        onSaved={() => { setShowEdit(false); }}
+      />
+
+      <DeletePatientModal
+        user={showDelete ? (user ?? null) : null}
+        open={showDelete}
+        onClose={() => setShowDelete(false)}
+        onDeleted={() => { setShowDelete(false); onNav('pacientes'); }}
+      />
     </div>
   );
 }
@@ -362,9 +517,44 @@ function ContactRow({ icon, label, value, verified, last }: { icon: React.ReactN
   );
 }
 
-function QuickAction({ icon, label, danger }: { icon: React.ReactNode; label: string; danger?: boolean }) {
+function PaymentList({ title, items, tone, fmtDate, fmtBRL }: {
+  title: string;
+  items: { id: string; value: number; dueDate: string; description: string }[];
+  tone: 'warn' | 'danger';
+  fmtDate: (d: string) => string;
+  fmtBRL: (v: number) => string;
+}) {
   return (
-    <button style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, fontSize: 13, fontWeight: 700, color: danger ? 'var(--red-600)' : 'var(--ink-2)', textAlign: 'left', width: '100%' }}>
+    <div>
+      <div style={{ fontSize: 11, fontWeight: 800, color: tone === 'danger' ? 'var(--red-600)' : 'var(--amber-600)',
+        textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
+        {title} ({items.length})
+      </div>
+      {items.map((p, i) => (
+        <div key={p.id} style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '9px 12px', borderRadius: 8, marginBottom: 5,
+          background: tone === 'danger' ? 'var(--red-50)' : 'var(--amber-50)',
+          border: `1px solid ${tone === 'danger' ? 'var(--red-100)' : 'var(--amber-100)'}`,
+        }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>{p.description || `Cobrança ${i + 1}`}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 11, color: 'var(--ink-3)', fontFamily: 'var(--mono)' }}>
+              {fmtDate(p.dueDate)}
+            </span>
+            <span style={{ fontSize: 13, fontWeight: 900, color: tone === 'danger' ? 'var(--red-600)' : 'var(--amber-700)' }}>
+              {fmtBRL(p.value)}
+            </span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function QuickAction({ icon, label, danger, onClick }: { icon: React.ReactNode; label: string; danger?: boolean; onClick?: () => void }) {
+  return (
+    <button onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, fontSize: 13, fontWeight: 700, color: danger ? 'var(--red-600)' : 'var(--ink-2)', textAlign: 'left', width: '100%', background: 'none', border: 'none', cursor: 'pointer' }}>
       <span style={{ color: danger ? 'var(--red-500)' : 'var(--ink-3)' }}>{icon}</span>
       {label}
     </button>

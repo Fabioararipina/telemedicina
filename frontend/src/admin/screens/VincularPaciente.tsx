@@ -36,7 +36,7 @@ export function ScreenVincularPaciente({ onNav }: Props) {
     setError('');
     axios.get<Preview>(`${BASE}/api/admin/sync-lsx/preview`, { headers: H })
       .then(r => setPreview(r.data))
-      .catch(() => setError('Erro ao conectar com a LSX.'))
+      .catch(() => setError('Erro ao conectar com a Meditele.'))
       .finally(() => setLoadingPreview(false));
   };
 
@@ -67,20 +67,20 @@ export function ScreenVincularPaciente({ onNav }: Props) {
     <div className="sa-shell">
       <Sidebar active="vincular-paciente" onNav={onNav} />
       <main className="sa-main">
-        <Topbar breadcrumb={['Pacientes', 'Sincronização LSX']} />
+        <Topbar breadcrumb={['Pacientes', 'Sincronização Meditele']} />
         <div className="sa-content">
           <PageHeader
-            title="Sincronização LSX"
-            subtitle="Mantém o sistema sincronizado com os pacientes cadastrados no portal LSX/Meditele."
+            title="Sincronização Meditele"
+            subtitle="Mantém o sistema sincronizado com os pacientes cadastrados no portal de telemedicina."
           />
 
           {/* Status cards */}
           {loadingPreview ? (
-            <div style={{ color: 'var(--ink-3)', fontWeight: 700, fontSize: 14 }}>Consultando LSX…</div>
+            <div style={{ color: 'var(--ink-3)', fontWeight: 700, fontSize: 14 }}>Consultando Meditele…</div>
           ) : preview && (
             <>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 28 }}>
-                {statBox('Na LSX', preview.lsxTotal, 'var(--accent)')}
+                {statBox('Na Meditele', preview.lsxTotal, 'var(--accent)')}
                 {statBox('No sistema', preview.localTotal, 'var(--ink)')}
                 {statBox('Sincronizados', preview.synced, '#16a34a')}
                 {statBox('Pendentes', preview.toCreate + preview.toUpdate, preview.toCreate + preview.toUpdate > 0 ? '#d97706' : '#16a34a')}
@@ -89,8 +89,8 @@ export function ScreenVincularPaciente({ onNav }: Props) {
               {/* Detalhes do que será feito */}
               {(preview.toCreate > 0 || preview.toUpdate > 0) && (
                 <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '14px 18px', marginBottom: 24, fontSize: 13, fontWeight: 600, color: '#92400e', lineHeight: 1.8 }}>
-                  {preview.toCreate > 0 && <div>• <strong>{preview.toCreate}</strong> paciente(s) da LSX serão importados para o sistema</div>}
-                  {preview.toUpdate > 0 && <div>• <strong>{preview.toUpdate}</strong> paciente(s) existentes receberão o ID LSX vinculado</div>}
+                  {preview.toCreate > 0 && <div>• <strong>{preview.toCreate}</strong> paciente(s) da Meditele serão importados para o sistema</div>}
+                  {preview.toUpdate > 0 && <div>• <strong>{preview.toUpdate}</strong> paciente(s) existentes receberão o ID Meditele vinculado</div>}
                 </div>
               )}
 

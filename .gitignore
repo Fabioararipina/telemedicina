@@ -21,6 +21,9 @@ backend/prisma/migrations/
 backend/backend_output.log
 frontend/frontend_output.log
 
+# Claude Code (configs locais)
+.claude/
+
 # Editor
 .vscode/
 .idea/

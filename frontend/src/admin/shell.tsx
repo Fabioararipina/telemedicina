@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Ic } from './icons';
 import { Sparkline } from './charts';
 import logoUrl from '../assets/logo.jpeg';
+import { adminApi } from './api';
 
 /* ── Sidebar ── */
 interface NavItem {
@@ -17,27 +18,41 @@ interface SidebarProps {
   onNav: (id: string) => void;
 }
 
-export function Sidebar({ active, onNav }: SidebarProps) {
+export function Sidebar({ active, onNav, patientCount: initialCount }: SidebarProps & { patientCount?: number }) {
+  const [patientCount,  setPatientCount]  = useState<number | undefined>(initialCount);
+  const [overdueCount,  setOverdueCount]  = useState<number | undefined>(undefined);
+
+  useEffect(() => {
+    adminApi.getUsers()
+      .then(users => setPatientCount(users.length))
+      .catch(() => {});
+    adminApi.getFinanceiroSummary()
+      .then(d => { if (d.hasAsaas) setOverdueCount(d.overdueCount); })
+      .catch(() => {});
+  }, []);
+
   const nav: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: Ic.dashboard },
-    { id: 'pacientes', label: 'Pacientes', icon: Ic.users, badge: '1.247' },
-    { id: 'planos', label: 'Planos', icon: Ic.plans },
+    { id: 'pacientes', label: 'Pacientes', icon: Ic.users, badge: patientCount != null ? String(patientCount) : undefined },
+    { id: 'planos',    label: 'Planos',    icon: Ic.plans },
   ];
   const navFin: NavItem[] = [
-    { id: 'receber', label: 'Contas a Receber', icon: Ic.finance, alert: true, badge: '32' },
-    { id: 'pagar', label: 'Contas a Pagar', icon: Ic.finance },
-    { id: 'gateway', label: 'Gateway', icon: Ic.finance },
+    { id: 'receber', label: 'Contas a Receber', icon: Ic.finance,
+      alert: (overdueCount ?? 0) > 0,
+      badge: overdueCount != null && overdueCount > 0 ? String(overdueCount) : undefined },
+    { id: 'pagar',   label: 'Contas a Pagar',   icon: Ic.finance },
+    { id: 'gateway', label: 'Gateway',           icon: Ic.finance },
   ];
   const navReports: NavItem[] = [
-    { id: 'rep-comercial', label: 'Comercial', icon: Ic.reports },
-    { id: 'rep-financeiro', label: 'Financeiro', icon: Ic.reports },
+    { id: 'rep-comercial',   label: 'Comercial',   icon: Ic.reports },
+    { id: 'rep-financeiro',  label: 'Financeiro',  icon: Ic.reports },
     { id: 'rep-operacional', label: 'Operacional', icon: Ic.reports },
   ];
   const navMisc: NavItem[] = [
-    { id: 'vincular-paciente', label: 'Vincular Paciente LSX', icon: Ic.users },
-    { id: 'parceiros', label: 'Parceiros & Cupons', icon: Ic.partners },
-    { id: 'usuarios', label: 'Usuários', icon: Ic.users },
-    { id: 'config', label: 'Configurações', icon: Ic.settings },
+    { id: 'vincular-paciente', label: 'Vincular Paciente Meditele', icon: Ic.users },
+    { id: 'parceiros',         label: 'Parceiros & Cupons',         icon: Ic.partners },
+    { id: 'usuarios',          label: 'Usuários',                   icon: Ic.users },
+    { id: 'config',            label: 'Configurações',              icon: Ic.settings },
   ];
 
   return (

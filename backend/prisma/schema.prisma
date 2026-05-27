@@ -8,39 +8,69 @@ datasource db {
 }
 
 model User {
-  id            String         @id @default(uuid())
-  name          String
-  email         String         @unique
-  cpf           String         @unique
-  phone         String?
-  passwordHash  String
-  lsxToken      String?        // Token gerado pela API da LSX
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  subscriptions Subscription[]
-  coupons       CouponUse[]    // Uso de cupons pelo usuário
+  id              String         @id @default(uuid())
+  name            String
+  email           String         @unique
+  cpf             String         @unique
+  phone           String?
+  passwordHash    String
+  lsxToken        String?        // Token gerado pela API da LSX (Meditele patient ID)
+  asaasCustomerId String?        // ID do cliente na Asaas
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  subscriptions   Subscription[]
+  coupons         CouponUse[]
 }
 
 model Plan {
   id            String         @id @default(uuid())
-  name          String         // Ex: Individual, Familiar
+  name          String         // Ex: Individual Promocional
   price         Decimal        @db.Decimal(10, 2)
-  type          String         // INDIVIDUAL, FAMILIAR
+  type          String         // INDIVIDUAL, FAMILIAR, AVULSO, CORTESIA
+  description   String?        // Descrição curta exibida na LP
+  mediteleId    String?        // UUID do plano correspondente na Meditele
+  active        Boolean        @default(true)
+  // Landing page
+  showOnLp      Boolean        @default(false)  // exibir na landing page
+  featured      Boolean        @default(false)  // tag "Mais escolhido"
+  originalPrice Decimal?       @db.Decimal(10, 2) // preço riscado "Normal R$X"
+  features      String?        // JSON: ["Clínico 24h", "1 especialista/mês"]
+  ctaLabel      String?        // texto do botão CTA, ex: "Quero o Individual"
+  periodLabel   String?        // "/mês" ou "30 dias"
+  sortOrder     Int            @default(0)      // ordem na LP
   createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   subscriptions Subscription[]
 }
 
 model Subscription {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  planId    String
-  plan      Plan     @relation(fields: [planId], references: [id])
-  status    String   // ACTIVE, CANCELLED, PENDING
-  startDate DateTime @default(now())
-  endDate   DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                  String     @id @default(uuid())
+  userId              String
+  user                User       @relation(fields: [userId], references: [id])
+  planId              String
+  plan                Plan       @relation(fields: [planId], references: [id])
+  status              String     // ACTIVE, CANCELLED, PENDING, SUSPENDED
+  startDate           DateTime   @default(now())
+  endDate             DateTime?
+  asaasSubscriptionId String?    // ID da assinatura/pagamento na Asaas
+  soldById            String?    // Vendedor que realizou a venda
+  soldBy              Employee?  @relation(fields: [soldById], references: [id])
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+}
+
+model Employee {
+  id               String         @id @default(uuid())
+  name             String
+  email            String         @unique
+  passwordHash     String
+  role             String         @default("VENDEDOR") // ADMIN, SUPERVISOR, VENDEDOR
+  active           Boolean        @default(true)
+  termsAcceptedAt  DateTime?      // null = não aceitou o termo ainda
+  termsAcceptedIp  String?        // IP no momento da aceitação
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  subscriptions    Subscription[]
 }
 
 model Partner {
@@ -94,4 +124,10 @@ model Lead {
   phone     String   @unique
   plan      String   // INDIVIDUAL, FAMILIAR, AVULSO
   createdAt DateTime @default(now())
+}
+
+model Config {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }
